@@ -1,0 +1,5 @@
+name: base_env
+variables:
+  - name: base_url
+    value: |
+      localhost:3000
