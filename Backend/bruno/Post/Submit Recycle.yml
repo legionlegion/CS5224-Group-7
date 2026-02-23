@@ -19,7 +19,8 @@ http:
         contentType: "30.2"
       - name: image
         type: text
-        value: File
+        value: Text
+        contentType: https://bucket-url/image.jpg
   auth: inherit
 
 settings:
