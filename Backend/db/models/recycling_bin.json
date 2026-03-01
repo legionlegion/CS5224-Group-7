@@ -1,0 +1,33 @@
+{
+  "_comments": {
+    "_doc_id": "Use 'inc_crc' as the document ID to allow idempotent upserts from the batch sync job.",
+    "inc_crc": "Unique hash from data.gov.sg — used as document ID for deduplication on upsert.",
+    "location": "GeoJSON Point — coordinates are [longitude, latitude]. Elevation is dropped.",
+    "address.type": "Building type code from source data. 'H' = HDB, 'C' = Commercial, etc.",
+    "district_id": "Derived by the backend during ingest using postal code lookup against districts collection.",
+    "gov_last_updated": "Parsed from the FMEL_UPD_D field in the source data (format: '20170602165922').",
+    "last_synced_at": "Timestamp of when the batch sync job last processed this record.",
+    "is_active": "Set to false if the bin no longer appears in the latest data.gov.sg feed."
+  },
+  "inc_crc": "A86545F66AF3A74E",
+  "source_name": "kml_1",
+  "location": {
+    "type": "Point",
+    "coordinates": [103.875052, 1.388540]
+  },
+  "address": {
+    "block": "407",
+    "building_name": "",
+    "street": "FERNVALE ROAD",
+    "floor": "",
+    "unit": "",
+    "postal_code": "790407",
+    "type": "H"
+  },
+  "district_id": "SG-SK",
+  "description": "To deposit recyclables such as paper, cardboard, glass bottles, plastic bottles and metal cans.",
+  "hyperlink": "www.nea.gov.sg/3R",
+  "gov_last_updated": "2017-06-02T16:59:22.000Z",
+  "last_synced_at": "2025-03-01T00:00:00.000Z",
+  "is_active": true
+}

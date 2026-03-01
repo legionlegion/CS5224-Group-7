@@ -1,0 +1,32 @@
+{
+  "_comments": {
+    "_doc_id": "Document ID = Firebase Auth UID (e.g. 'uid_abc123'). Not stored as a field.",
+    "password_hash": "Hashed by Firebase Auth — do not store raw passwords here.",
+    "rewards": "Not yet implemented — will be an array of redeemed reward objects."
+  },
+  "username": "alice_sg",
+  "email": "alice@example.com",
+  "password_hash": "$2b$12$examplehashedpassword",
+  "district_id": "SG-BS",
+  "created_at": "2025-01-15T08:30:00.000Z",
+  "points": 42,
+  "profile": {
+    "display_name": "Alice",
+    "avatar_url": "https://storage.example.com/public/avatars/alice.jpg"
+  },
+  "badges": [
+    {
+      "badge_type": "individual_top3",
+      "month": "2025-01",
+      "district_id": "SG-BS",
+      "awarded_at": "2025-02-01T00:00:00.000Z"
+    },
+    {
+      "badge_type": "community",
+      "month": "2025-02",
+      "district_id": "SG-BS",
+      "awarded_at": "2025-03-01T00:00:00.000Z"
+    }
+  ],
+  "rewards": []
+}
