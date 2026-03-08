@@ -8,13 +8,12 @@ import {
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDOxgeiNSsG9QiYMORzP5N6LJi6-ndJ0QQ",
-  authDomain: "cs5224-grp7.firebaseapp.com",
-  projectId: "cs5224-grp7",
-  storageBucket: "cs5224-grp7.firebasestorage.app",
-  messagingSenderId: "396135942191",
-  appId: "1:396135942191:web:30371acc65d7c7ac411eda",
-  measurementId: "G-VQHD6PBFCS"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
