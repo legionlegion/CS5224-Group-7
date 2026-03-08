@@ -159,16 +159,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const credential = await createUserWithEmailAndPassword(auth, email, password);
-        await reserveAndCreateProfile({
-          uid: credential.user.uid,
-          email,
-          userId: username,
-          displayName: displayName || username,
-          provider: "password"
-        });
+        
+        try {
+          await reserveAndCreateProfile({
+            uid: credential.user.uid,
+            email,
+            userId: username,
+            displayName: displayName || username,
+            provider: "password"
+          });
 
-        const createdProfile = await getProfile(credential.user.uid);
-        setProfile(createdProfile);
+          const createdProfile = await getProfile(credential.user.uid);
+          setProfile(createdProfile);
+        } catch (error) {
+          // delete the auth user if profile creation fails
+          await credential.user.delete();
+          throw error;
+        }
       },
       login: async (email, password) => {
         if (USE_MOCK_API && email.trim().toLowerCase() === "dev" && password === "dev") {
