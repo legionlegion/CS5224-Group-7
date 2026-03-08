@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-canvas text-ink antialiased;
+  background-image:
+    radial-gradient(circle at top, rgba(104, 182, 132, 0.22), transparent 30%),
+    linear-gradient(180deg, rgba(231, 200, 155, 0.32), rgba(245, 240, 232, 0.98));
+  min-height: 100vh;
+}
+
+a {
+  @apply text-inherit no-underline;
+}
+
+button,
+input,
+select {
+  @apply outline-none;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}
