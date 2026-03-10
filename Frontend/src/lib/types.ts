@@ -33,10 +33,12 @@ export interface BinFeatureCollection {
 
 export interface NearbyBin {
   id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  distanceMeters: number;
+  address: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  distance_meters: number;
 }
 
 export interface VerifyActivityResult {
@@ -53,10 +55,8 @@ export interface VerifyActivityResult {
 
 export interface LeaderboardEntry {
   rank: number;
-  userId: string;
-  displayName: string;
+  username: string;
   points: number;
-  isCurrentUser?: boolean;
 }
 
 export type LeaderboardScope = "global" | "local";

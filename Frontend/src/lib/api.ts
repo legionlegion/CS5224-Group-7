@@ -58,7 +58,13 @@ export async function getNearbyBins(
     radius: String(radius)
   });
 
-  return request<NearbyBin[]>(`/api/v1/nearby-bins?${params.toString()}`);
+  const response = await request<{
+    status: string;
+    count: number;
+    data: NearbyBin[];
+  }>(`/api/v1/nearby-bins?${params.toString()}`);
+  
+  return response.data;
 }
 
 export async function verifyActivity(formData: FormData): Promise<VerifyActivityResult> {
@@ -73,29 +79,33 @@ export async function verifyActivity(formData: FormData): Promise<VerifyActivity
 }
 
 export async function getLeaderboard(
-  userId: string | undefined,
   scope: LeaderboardScope,
   limit = 10
 ): Promise<LeaderboardEntry[]> {
   if (USE_MOCK_API) {
-    return mockLeaderboard(userId, scope, limit);
+    return mockLeaderboard(scope, limit);
   }
 
   const params = new URLSearchParams({
-    userId: userId || "",
-    scope,
-    limit: String(limit)
+    Scope: scope,
+    Limit: String(limit)
   });
 
-  return request<LeaderboardEntry[]>(`/api/v1/leaderboard?${params.toString()}`);
+  const response = await request<{
+    scope: string;
+    user_current_rank: number;
+    leaderboard: LeaderboardEntry[];
+  }>(`/api/v1/leaderboard?${params.toString()}`);
+  
+  return response.leaderboard;
 }
 
-export async function getUserStats(userId: string): Promise<UserStats> {
+export async function getUserStats(): Promise<UserStats> {
   console.log(testAuth())
   if (USE_MOCK_API) {
-    return mockUserStats(userId);
+    return mockUserStats();
   }
-  return request<UserStats>(`/api/v1/users/${userId}/stats`);
+  return request<UserStats>(`/api/v1/users/stats`);
 }
 
 export async function testAuth(): Promise<{

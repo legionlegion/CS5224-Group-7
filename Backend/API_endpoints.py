@@ -205,9 +205,9 @@ def get_nearby_bins():
         user_id = g.user['uid']
         
         # parameters
-        user_lat = request.args.get('Latitude', type=float)
-        user_lng = request.args.get('Longitude', type=float)
-        radius = request.args.get('Radius', type=float)
+        user_lat = request.args.get('lat', type=float)
+        user_lng = request.args.get('lng', type=float)
+        radius = request.args.get('radius', type=float)
 
         if user_lat is None or user_lng is None or radius is None:
             return jsonify({"status": "error", "message": "Missing Latitude, Longitude, or Radius"}), 400

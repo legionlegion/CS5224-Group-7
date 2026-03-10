@@ -22,7 +22,7 @@ export default function LeaderboardPage() {
       setError("");
 
       try {
-        const results = await getLeaderboard(profile?.userId, scope, 10);
+        const results = await getLeaderboard(scope, 10);
         setEntries(results);
       } catch (leaderboardError) {
         setError(
@@ -36,7 +36,7 @@ export default function LeaderboardPage() {
     };
 
     loadLeaderboard();
-  }, [profile?.userId, scope]);
+  }, [scope]);
 
   return (
     <AuthGuard>

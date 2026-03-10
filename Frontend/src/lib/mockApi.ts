@@ -39,17 +39,21 @@ export async function mockNearbyBins(lat: number, lng: number): Promise<NearbyBi
   return [
     {
       id: "nearby-1",
-      name: "Bishan Community Club",
-      lat: lat + 0.0018,
-      lng: lng + 0.0012,
-      distanceMeters: 260
+      address: "Bishan Community Club",
+      coordinates: {
+        lat: lat + 0.0018,
+        lng: lng + 0.0012
+      },
+      distance_meters: 260
     },
     {
       id: "nearby-2",
-      name: "Junction 8",
-      lat: lat - 0.0015,
-      lng: lng + 0.0009,
-      distanceMeters: 310
+      address: "Junction 8",
+      coordinates: {
+        lat: lat - 0.0015,
+        lng: lng + 0.0009
+      },
+      distance_meters: 310
     }
   ];
 }
@@ -83,18 +87,27 @@ export async function mockVerifyActivity(): Promise<VerifyActivityResult> {
 }
 
 export async function mockLeaderboard(
-  userId?: string,
   scope: LeaderboardScope = "global",
   limit = 10
 ): Promise<LeaderboardEntry[]> {
   await mockDelay();
-  return Array.from({ length: limit }, (_, index) => ({
-    rank: index + 1,
-    userId: index === 3 && userId ? userId : `eco-user-${index + 1}`,
-    displayName: index === 3 && userId ? userId : `${scope}-cycler-${index + 1}`,
-    points: 1500 - index * 80,
-    isCurrentUser: index === 3 && Boolean(userId)
-  }));
+  return [
+    {
+      rank: 1,
+      username: "EcoWarrior88",
+      points: 1250
+    },
+    {
+      rank: 2,
+      username: "GreenMachine",
+      points: 1100
+    },
+    {
+      rank: 3,
+      username: "NatureLover",
+      points: 800
+    }
+  ];
 }
 
 export async function mockUserStats(userId = "guest"): Promise<UserStats> {
