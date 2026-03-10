@@ -23,6 +23,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (auth?.currentUser) {
     try {
       const idToken = await auth.currentUser.getIdToken();
+      console.log("Id token: " + idToken)
       headers.set("Authorization", `Bearer ${idToken}`);
     } catch (error) {
       console.error("Failed to get Firebase ID token:", error);
@@ -90,11 +91,24 @@ export async function getLeaderboard(
 }
 
 export async function getUserStats(userId: string): Promise<UserStats> {
+  console.log(testAuth())
   if (USE_MOCK_API) {
     return mockUserStats(userId);
   }
-
   return request<UserStats>(`/api/v1/users/${userId}/stats`);
+}
+
+export async function testAuth(): Promise<{
+  status: string;
+  message: string;
+  user: {
+    uid: string;
+    email: string;
+    email_verified: boolean;
+  };
+  timestamp: string;
+}> {
+  return request("/api/v1/test-auth");
 }
 
 export { USE_MOCK_API };

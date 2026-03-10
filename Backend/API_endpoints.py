@@ -1,11 +1,35 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
+from flask_cors import CORS
 from datetime import datetime
 import math
+
+# Firebase Auth
 import firebase_admin
-from firebase_admin import credentials, auth
+from firebase_admin import credentials
+from auth_middleware import require_auth
+
+# Logging and env
+import logging
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-default_app = firebase_admin.initialize_app()
+CORS(app)
+
+if not firebase_admin._apps:
+    cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if cred_path:
+        logger.info(f"Initializing Firebase with credentials from: {cred_path}")
+        cred = credentials.Certificate(cred_path)
+        firebase_admin.initialize_app(cred)
+    else:
+        logger.info("GOOGLE_APPLICATION_CREDENTIALS not set. Initializing Firebase with default credentials.")
+        firebase_admin.initialize_app()
 
 # REPLACE WITH CODE TO SEARCH BIN IN DATABASE
 BINS_DATABASE = [
@@ -105,10 +129,13 @@ def get_user_db_stats(userId):
 VERIFY USER RECYCLING SUBMISSION
 '''
 @app.route('/api/v1/verify-activity', methods=['POST'])
+@require_auth
 def verify_activity():
     try:
+        # get authenticated user
+        user_id = g.user['uid']
+        
         # form fields
-        user_id = request.form.get('UserId')
         latitude = request.form.get('Latitude', type=float)
         longitude = request.form.get('Longitude', type=float)
         
@@ -116,7 +143,7 @@ def verify_activity():
         image_file = request.files.get('Image')
 
         # check if all fields present
-        if not all([user_id, latitude, longitude, image_file]):
+        if not all([latitude, longitude, image_file]):
             return jsonify({"error": "Missing required fields or file"}), 400
 
         # get model response
@@ -171,8 +198,12 @@ def verify_activity():
 GET NEARBY BINS
 '''
 @app.route('/api/v1/nearby-bins', methods=['GET'])
+@require_auth
 def get_nearby_bins():
     try:
+        # get authenticated user
+        user_id = g.user['uid']
+        
         # parameters
         user_lat = request.args.get('Latitude', type=float)
         user_lng = request.args.get('Longitude', type=float)
@@ -216,10 +247,13 @@ def get_nearby_bins():
 GET LEADERBOARD
 '''
 @app.route('/api/v1/leaderboard', methods=['GET'])
+@require_auth
 def get_leaderboard():
     try:
+        # get authenticated user
+        user_id = g.user['uid']
+        
         # parameters
-        user_id = request.args.get('UserId')
         scope = request.args.get('Scope', 'global').lower() # Default scope global
         limit = request.args.get('Limit', default=10, type=int)
 
@@ -257,13 +291,17 @@ def get_leaderboard():
 '''
 GET USER STATS
 '''
-@app.route('/api/v1/users/<userId>/stats', methods=['GET'])
-def get_user_stats(userId):
+@app.route('/api/v1/users/stats', methods=['GET'])
+@require_auth
+def get_user_stats():
     try:
+        # get authenticated user
+        user_id = g.user['uid']
+        
         # REPLACE WITH USER STATISTICS FROM DATABASE
-        username, totalPoints, level, totalSubmissions, lastRecycled = get_user_db_stats(userId)
+        username, totalPoints, level, totalSubmissions, lastRecycled = get_user_db_stats(user_id)
         user_data = {
-            "userId": userId,
+            "userId": user_id,
             "username": username,
             "totalPoints": totalPoints,
             "level": level,
@@ -279,7 +317,29 @@ def get_user_stats(userId):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+'''
+TEST AUTH ENDPOINT
+'''
+@app.route('/api/v1/test-auth', methods=['GET'])
+@require_auth
+def test_auth():
+    try:
+        user_info = {
+            "status": "success",
+            "message": "Authentication successful",
+            "user": {
+                "uid": g.user.get('uid'),
+                "email": g.user.get('email'),
+                "email_verified": g.user.get('email_verified', False)
+            },
+            "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+        }
+        logger.info(f"User id: {g.user.get('uid')}")
+        return jsonify(user_info), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=8000)
 
