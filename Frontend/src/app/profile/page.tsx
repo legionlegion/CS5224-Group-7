@@ -26,7 +26,7 @@ export default function ProfilePage() {
       setError("");
 
       try {
-        const data = await getUserStats(profile.userId);
+        const data = await getUserStats();
         setStats(data);
       } catch (statsError) {
         setError(statsError instanceof Error ? statsError.message : "Unable to load profile.");

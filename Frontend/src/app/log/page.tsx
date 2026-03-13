@@ -39,7 +39,6 @@ export default function LogPage() {
       formData.append("Latitude", String(coords.lat));
       formData.append("Longitude", String(coords.lng));
       formData.append("Image", capturedFile);
-      formData.append("UserId", profile.userId);
 
       const result = await verifyActivity(formData);
       sessionStorage.setItem(rewardSessionKey, JSON.stringify(result));

@@ -5,24 +5,16 @@ export function LeaderboardList({ entries }: { entries: LeaderboardEntry[] }) {
     <div className="space-y-3">
       {entries.map((entry) => (
         <div
-          key={`${entry.userId}-${entry.rank}`}
-          className={`flex items-center justify-between rounded-3xl p-4 shadow-card ${
-            entry.isCurrentUser ? "bg-moss text-white" : "bg-white/85"
-          }`}
+          key={`${entry.username}-${entry.rank}`}
+          className="flex items-center justify-between rounded-3xl bg-white/85 p-4 shadow-card"
         >
           <div className="flex items-center gap-3">
-            <span
-              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-                entry.isCurrentUser ? "bg-white/20" : "bg-canvas"
-              }`}
-            >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-canvas text-sm font-semibold">
               #{entry.rank}
             </span>
             <div>
-              <p className="font-semibold">{entry.displayName}</p>
-              <p className={`text-sm ${entry.isCurrentUser ? "text-white/80" : "text-ink/60"}`}>
-                {entry.userId}
-              </p>
+              <p className="font-semibold">{entry.username}</p>
+              <p className="text-sm text-ink/60">{entry.points} points</p>
             </div>
           </div>
           <p className="text-lg font-semibold">{entry.points}</p>
