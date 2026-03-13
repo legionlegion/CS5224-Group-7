@@ -22,6 +22,21 @@ app = Flask(__name__)
 CORS(app)
 
 if not firebase_admin._apps:
+    cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "secrets/serviceAccountKey.json"
+    
+    if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
+        import json
+        with open(cred_path) as f:
+            data = json.load(f)
+            os.environ["GOOGLE_CLOUD_PROJECT"] = data.get("project_id")
+            print(f"JSON: Pulled project_id from serviceAccountKey: {os.environ['GOOGLE_CLOUD_PROJECT']}")
+
+    cred = credentials.Certificate(cred_path)
+    firebase_admin.initialize_app(cred, {'projectId': os.environ.get("GOOGLE_CLOUD_PROJECT")})
+    print("Firebase initialized successfully.")
+
+'''
+if not firebase_admin._apps:
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if cred_path:
         logger.info(f"Initializing Firebase with credentials from: {cred_path}")
@@ -30,6 +45,7 @@ if not firebase_admin._apps:
     else:
         logger.info("GOOGLE_APPLICATION_CREDENTIALS not set. Initializing Firebase with default credentials.")
         firebase_admin.initialize_app()
+'''
 
 # REPLACE WITH CODE TO SEARCH BIN IN DATABASE
 BINS_DATABASE = [
