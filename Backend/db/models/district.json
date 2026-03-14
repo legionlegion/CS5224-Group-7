@@ -1,8 +1,8 @@
 {
   "_comments": {
-    "_doc_id": "Use the district code as the document ID (e.g. 'SG-BS') for direct lookups without querying.",
-    "region": "Broad grouping of districts. One of: 'Central', 'North', 'North-East', 'East', 'West'."
+    "_doc_id": "Use the district code as the document ID (e.g. 'central') for direct lookups without querying.",
+    "region_id": "Reference to the region document ID (e.g. 'central', 'north', 'north-east', 'east', 'west')."
   },
-  "name": "Bishan",
-  "region": "Central"
+  "name": "Central",
+  "region_id": "central"
 }

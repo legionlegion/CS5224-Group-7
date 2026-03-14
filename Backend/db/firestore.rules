@@ -63,5 +63,39 @@ service cloud.firestore {
       // Only backend batch job writes leaderboard entries
       allow write: if false;
     }
+
+    // -------------------------------------------------------
+    // profiles/{uid}
+    // -------------------------------------------------------
+    match /profiles/{uid} {
+      // A user can read and update their own profile
+      allow read, update: if isSignedIn() && isOwner(uid);
+      // A user can create their own profile only during signup
+      allow create: if isSignedIn() && isOwner(uid);
+      // Users cannot delete profiles
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------
+    // usernames/{username}
+    // -------------------------------------------------------
+    match /usernames/{username} {
+      // Public read — check username availability
+      allow read: if true;
+      // Only users can reserve usernames during signup
+      allow create: if isSignedIn();
+      // Users cannot modify or delete username reservations
+      allow update, delete: if false;
+    }
+
+    // -------------------------------------------------------
+    // regions/{regionId}
+    // -------------------------------------------------------
+    match /regions/{regionId} {
+      // Public read — regions are reference data
+      allow read: if true;
+      // Only backend can write
+      allow write: if false;
+    }
   }
 }

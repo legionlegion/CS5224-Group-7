@@ -1,7 +1,6 @@
 {
   "_comments": {
     "_doc_id": "Document ID = Firebase Auth UID (e.g. 'uid_abc123'). Not stored as a field.",
-    "password_hash": "Hashed by Firebase Auth — do not store raw passwords here.",
     "rewards": "Not yet implemented — will be an array of redeemed reward objects."
   },
   "username": "alice_sg",

@@ -15,5 +15,6 @@ They serve as the **reference shape** for backend code when reading and writing 
 | `user.json` | `users` | Firebase Auth UID (e.g. `uid_abc123`) |
 | `transaction.json` | `transactions` | Auto-generated ID |
 | `recycling_bin.json` | `recycling_bins` | `inc_crc` value from data.gov.sg |
-| `district.json` | `districts` | District code (e.g. `SG-BS`) |
+| `region.json` | `regions` | Region ID (e.g. `central`, `north`, `north-east`, `east`, `west`) |
+| `district.json` | `districts` | District code (e.g. `central`, `north`) |
 | `leaderboard.json` | `leaderboard` | Month string (e.g. `2025-01`) |

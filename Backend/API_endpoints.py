@@ -24,16 +24,35 @@ CORS(app)
 if not firebase_admin._apps:
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "serviceAccountKey.json"
     
-    if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
-        import json
-        with open(cred_path) as f:
-            data = json.load(f)
-            os.environ["GOOGLE_CLOUD_PROJECT"] = data.get("project_id")
-            print(f"JSON: Pulled project_id from serviceAccountKey: {os.environ['GOOGLE_CLOUD_PROJECT']}")
+    # Check if credential file exists
+    if os.path.exists(cred_path):
+        if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
+            import json
+            try:
+                with open(cred_path) as f:
+                    data = json.load(f)
+                    os.environ["GOOGLE_CLOUD_PROJECT"] = data.get("project_id")
+                    logger.info("Project ID loaded from credentials file")
+            except (IOError, json.JSONDecodeError) as e:
+                logger.error(f"Failed to load credentials file: {e}")
+                raise
 
-    cred = credentials.Certificate(cred_path)
-    firebase_admin.initialize_app(cred, {'projectId': os.environ.get("GOOGLE_CLOUD_PROJECT")})
-    print("Firebase initialized successfully.")
+        try:
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred, {'projectId': os.environ.get("GOOGLE_CLOUD_PROJECT")})
+            logger.info("Firebase initialized with credentials file")
+        except Exception as e:
+            logger.error(f"Failed to initialize Firebase with credentials: {e}")
+            raise
+    else:
+        # Fallback to Application Default Credentials (ADC) / emulator
+        logger.info("Credentials file not found. Using Application Default Credentials")
+        try:
+            firebase_admin.initialize_app()
+            logger.info("Firebase initialized with default credentials")
+        except Exception as e:
+            logger.error(f"Failed to initialize Firebase with default credentials: {e}")
+            raise
 
 # Initialize Firestore
 db = firestore.client()
@@ -99,6 +118,23 @@ def get_model_response(user_id, image_file):
 
 # ===== FIRESTORE DATABASE FUNCTIONS =====
 
+def format_address(address_obj):
+    """Format structured address object into a single string."""
+    parts = []
+    block = address_obj.get('block', '').strip()
+    street = address_obj.get('street', '').strip()
+    postal_code = address_obj.get('postal_code', '').strip()
+    
+    if block:
+        parts.append(f"Block {block}")
+    if street:
+        parts.append(street)
+    if postal_code:
+        parts.append(postal_code)
+    
+    return ", ".join(parts) if parts else "Address not available"
+
+
 def get_all_bins():
     """Fetch all active recycling bins from Firestore."""
     try:
@@ -108,13 +144,11 @@ def get_all_bins():
         bins = []
         for doc in docs:
             data = doc.to_dict()
+            address_formatted = format_address(data.get('address', {}))
+            
             bins.append({
                 "id": doc.id,
-                "address": {
-                    "block": data.get('address', {}).get('block', ''),
-                    "street": data.get('address', {}).get('street', ''),
-                    "postal_code": data.get('address', {}).get('postal_code', '')
-                },
+                "address": address_formatted,
                 "lat": data.get('location', {}).get('coordinates', [0, 0])[1],
                 "lng": data.get('location', {}).get('coordinates', [0, 0])[0],
                 "district_id": data.get('district_id', ''),
@@ -128,18 +162,18 @@ def get_all_bins():
         return []
 
 
-def get_user_district(user_id):
-    """Fetch user's district from Firestore."""
+def get_user_region(user_id):
+    """Fetch user's region from Firestore."""
     try:
         user_doc = db.collection('users').document(user_id).get()
         
         if user_doc.exists:
-            return user_doc.get('district_id')
+            return user_doc.get('region_id', None)
         else:
             logger.warning(f"User {user_id} not found in Firestore")
             return None
     except Exception as e:
-        logger.error(f"Error fetching user district: {str(e)}")
+        logger.error(f"Error fetching user region: {str(e)}")
         return None
 
 
@@ -211,8 +245,8 @@ def get_user_db_stats(user_id):
             level = "Bronze"
         
         # Count total submissions (transactions where is_counted=true)
-        transactions = db.collection('transactions').where('user_id', '==', user_id).where('is_counted', '==', True).stream()
-        total_submissions = len(list(transactions))
+        count_result = db.collection('transactions').where('user_id', '==', user_id).where('is_counted', '==', True).count().get()
+        total_submissions = count_result[0][0].value
         
         # Get last recycled timestamp
         last_txn = db.collection('transactions').where('user_id', '==', user_id).order_by('submitted_at', direction=firestore.Query.DESCENDING).limit(1).stream()
@@ -363,7 +397,7 @@ def get_all_districts():
         logger.error(f"Error fetching districts: {str(e)}")
         return []
 
-
+# ===== API ENDPOINTS =====
 '''
 VERIFY USER RECYCLING SUBMISSION
 '''
@@ -405,13 +439,13 @@ def verify_activity():
         # Award points
         points_earned = 50 if (cv_result['is_recyclable'] and location_check_passed) else 0
         
-        # Get user district
-        user_district = get_user_district(user_id)
+        # Get user region
+        user_region_id = get_user_region(user_id)
         
         # Save transaction to Firestore
         transaction_id = save_transaction(
             user_id=user_id,
-            district_id=user_district,
+            region_id=user_region_id,
             gps_location=(latitude, longitude),
             nearest_bin_id=nearest_bin['id'] if nearest_bin else None,
             cv_result=cv_result,
@@ -443,7 +477,7 @@ def verify_activity():
                     "new_total_balance": total_points
                 },
                 "community_impact": {
-                    "district": user_district,
+                    "region": user_region_id,
                     "user_rank": user_rank
                 },
                 "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -533,12 +567,12 @@ def get_leaderboard():
         scope = request.args.get('Scope', 'global').lower() # Default scope global
         limit = request.args.get('Limit', default=10, type=int)
 
-        user_district = get_user_district(user_id)
+        user_region_id = get_user_region(user_id)
         user_rank = get_user_rank(user_id)
         all_users = get_all_users()
         
         if scope == "local":
-            filtered_list = [u for u in all_users if u['district'] == user_district]
+            filtered_list = [u for u in all_users if u['region_id'] == user_region_id]
         else:
             filtered_list = all_users
 
