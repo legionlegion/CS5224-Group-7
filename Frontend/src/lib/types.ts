@@ -42,15 +42,26 @@ export interface NearbyBin {
 }
 
 export interface VerifyActivityResult {
-  submissionId: string;
-  status: "approved" | "rejected" | "pending";
-  pointsEarned: number;
-  newTotalBalance: number;
-  bonusApplied: boolean;
-  detectedItems: string[];
-  districtRank: number;
-  message: string;
-  submittedAt: string;
+  status: "success" | "fail" | "error";
+  transaction_id: string;
+  user_id: string;
+  verification_details: {
+    gps_match: boolean;
+    distance_metres: number;
+    cv_confidence_score: number;
+    detected_items: string[];
+  };
+  rewards?: {
+    points_earned: number;
+    bonus_applied: string;
+    new_total_balance: number;
+  };
+  community_impact?: {
+    district: string;
+    district_rank: number;
+  };
+  timestamp: string;
+  message?: string;
 }
 
 export interface LeaderboardEntry {
@@ -71,12 +82,13 @@ export interface SubmissionHistoryItem {
 
 export interface UserStats {
   userId: string;
-  email: string;
+  username: string;
   level: string;
   totalPoints: number;
-  totalSubmissions: number;
-  lastRecycled: string;
-  submissionHistory: SubmissionHistoryItem[];
+  stats: {
+    totalSubmissions: number;
+    lastRecycled: string;
+  };
 }
 
 export interface LocationCoordinates {

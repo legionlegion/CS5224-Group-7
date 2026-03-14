@@ -1,19 +1,62 @@
 import requests
 import json
+import os
+from datetime import datetime
+import firebase_admin
+from firebase_admin import auth, credentials
+from dotenv import load_dotenv
 
-# REPLACE WITH CODE TO DETERMINE USER_ID
-user_id = "u_99123"
+SECRETS_DIR = "secrets"
+SERVICE_ACCOUNT_FILE = os.path.join(SECRETS_DIR, "serviceAccountKey.json")
+load_dotenv()
+
+# --- CONFIGURATION ---
+WEB_API_KEY = os.getenv("NEXT_PUBLIC_FIREBASE_API_KEY")
+BASE_URL = "http://127.0.0.1:8000" + "/api/v1"
+TEST_USER_ID = "TEST_USER_123"
+
+def get_authenticated_headers(uid):
+    """
+    Uses the Service Account to generate a valid Firebase ID Token
+    """
+    if not WEB_API_KEY:
+        raise ValueError("Critical Error: NEXT_PUBLIC_FIREBASE_API_KEY not found in .env.local")
+
+    # Initialize Firebase Admin
+    if not firebase_admin._apps:
+        if not os.path.exists(SERVICE_ACCOUNT_FILE):
+            raise FileNotFoundError(f"Missing {SERVICE_ACCOUNT_FILE}")
+        cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
+        firebase_admin.initialize_app(cred)
+
+    # Generate Custom Token
+    custom_token = auth.create_custom_token(uid).decode('utf-8')
+
+    # Exchange for ID Token
+    exchange_url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key={WEB_API_KEY}"
+    payload = {"token": custom_token, "returnSecureToken": True}
+    
+    response = requests.post(exchange_url, json=payload)
+    if response.status_code != 200:
+        raise Exception(f"Failed to exchange token: {response.text}")
+    
+    return {"Authorization": f"Bearer {response.json()['idToken']}"}
+
+# Get token
+print("Generating secure credentials...")
+HEADERS = get_authenticated_headers(TEST_USER_ID)
+print("Successfully authenticated.\n")
+
 
 '''
 TEST POST VERIFY ACTIVITY
 '''
 # Configuration
-URL = "http://127.0.0.1:5000/api/v1/verify-activity"
+URL = f"{BASE_URL}/verify-activity"
 IMAGE_PATH = "recycled_items.jpg"
 
 # Data payload
 payload = {
-    'UserId': "u_99123",
     'Latitude': 1.3521,
     'Longitude': 103.9447
 }
@@ -27,7 +70,7 @@ try:
 
         # POST request
         print(f"Sending recycling submission request to {URL}...")
-        response = requests.post(URL, data=payload, files=files)
+        response = requests.post(URL, data=payload, files=files, headers=HEADERS)
 
     if response.status_code == 200:
         print("Success!")
@@ -48,14 +91,14 @@ except Exception as e:
 TEST GET NEARBY BINS
 '''
 print("\nRetrieving nearby bins based on current position...")
-URL = "http://127.0.0.1:5000/api/v1/nearby-bins"
+URL = f"{BASE_URL}/nearby-bins"
 params = {
-    'Latitude': 1.3000,
-    'Longitude': 103.8380,
-    'Radius': 500   # dist in metres
+    'lat': 1.3000,
+    'lng': 103.8380,
+    'radius': 500   # dist in metres
 }
 
-response = requests.get(URL, params=params)
+response = requests.get(URL, params=params, headers=HEADERS)
 with open('GET_nearby_bins_api_response.json', 'w') as f: 
     json.dump(response.json(), f, indent=4)
 print(response.json())
@@ -65,14 +108,13 @@ print(response.json())
 TEST GET LEADERBOARD
 '''
 print("\nRetrieving leaderboard...")
-URL = "http://127.0.0.1:5000/api/v1/leaderboard"
+URL = f"{BASE_URL}/leaderboard"
 params = {
-    'UserId': '123XYZ456',
     'Scope': 'local',
     'Limit': 3
 }
 
-response = requests.get(URL, params=params)
+response = requests.get(URL, params=params, headers=HEADERS)
 
 if response.status_code == 200:
     with open('GET_leaderboard_response.json', 'w') as f:
@@ -86,13 +128,12 @@ else:
 TEST GET USER STATISTICS
 '''
 print("\nRetrieving user statistics...")
-USER_ID = "u_99123"
-URL = f"http://127.0.0.1:5000/api/v1/users/{USER_ID}/stats"
+URL = f"{BASE_URL}/users/stats"
 
-response = requests.get(URL)
+response = requests.get(URL, headers=HEADERS)
 
 if response.status_code == 200:
-    filename = f"GET_user_stats_{USER_ID}.json"
+    filename = f"GET_user_stats.json"
     with open(filename, 'w') as f:
         json.dump(response.json(), f, indent=4)
     print(response.json())
