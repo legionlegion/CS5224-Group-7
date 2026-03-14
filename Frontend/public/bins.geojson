@@ -1,0 +1,60 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [103.8485, 1.3507] },
+      "properties": {
+        "id": "nea-001",
+        "name": "Toa Payoh Central",
+        "block": "BLK 190",
+        "street": "Toa Payoh Lorong 6",
+        "postalCode": "310190"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [103.8446, 1.3691] },
+      "properties": {
+        "id": "nea-002",
+        "name": "Ang Mo Kio Hub",
+        "block": "53",
+        "street": "Ang Mo Kio Avenue 3",
+        "postalCode": "569933"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [103.8478, 1.3496] },
+      "properties": {
+        "id": "nea-003",
+        "name": "Braddell Heights",
+        "block": "BLK 245",
+        "street": "Lorong 2 Toa Payoh",
+        "postalCode": "310245"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [103.8321, 1.3067] },
+      "properties": {
+        "id": "nea-004",
+        "name": "Tiong Bahru Plaza",
+        "block": "302",
+        "street": "Tiong Bahru Road",
+        "postalCode": "168732"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [103.7291, 1.3349] },
+      "properties": {
+        "id": "nea-005",
+        "name": "Jurong East MRT",
+        "block": "10",
+        "street": "Jurong East Central 1",
+        "postalCode": "609731"
+      }
+    }
+  ]
+}
