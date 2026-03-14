@@ -14,7 +14,7 @@ import {
 import { auth } from "@/lib/firebase";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
+const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "false";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
@@ -101,7 +101,6 @@ export async function getLeaderboard(
 }
 
 export async function getUserStats(): Promise<UserStats> {
-  console.log(testAuth())
   if (USE_MOCK_API) {
     return mockUserStats();
   }

@@ -63,26 +63,43 @@ export async function mockVerifyActivity(): Promise<VerifyActivityResult> {
   const mode = process.env.NEXT_PUBLIC_MOCK_VERIFY_RESULT || "random";
   const status =
     mode === "success"
-      ? "approved"
+      ? "success"
       : mode === "failure"
-        ? "rejected"
+        ? "fail"
         : Math.random() > 0.3
-          ? "approved"
-          : "rejected";
+          ? "success"
+          : "fail";
 
   return {
-    submissionId: `mock-${Date.now()}`,
+    transaction_id: `mock-${Date.now()}`,
+    user_id: "mock-user-1",
     status,
-    pointsEarned: status === "approved" ? 35 : 0,
-    newTotalBalance: status === "approved" ? 420 : 385,
-    bonusApplied: status === "approved",
-    detectedItems: status === "approved" ? ["plastic bottle", "metal can"] : [],
-    districtRank: status === "approved" ? 14 : 18,
+    verification_details: {
+      gps_match: status === "success",
+      distance_metres: status === "success" ? 2.4 : 35.6,
+      cv_confidence_score: status === "success" ? 0.91 : 0.38,
+      detected_items: status === "success" ? ["plastic bottle", "metal can"] : []
+    },
+    rewards:
+      status === "success"
+        ? {
+            points_earned: 35,
+            new_total_balance: 420,
+            bonus_applied: "First-of-the-Week"
+          }
+        : undefined,
+    community_impact:
+      status === "success"
+        ? {
+            district: "Bishan",
+            district_rank: 14
+          }
+        : undefined,
     message:
-      status === "approved"
+      status === "success"
         ? "Recycling verified successfully."
         : "Verification failed. Try retaking the photo with the bin in frame.",
-    submittedAt: new Date().toISOString()
+    timestamp: new Date().toISOString()
   };
 }
 
@@ -114,12 +131,13 @@ export async function mockUserStats(userId = "guest"): Promise<UserStats> {
   await mockDelay();
   return {
     userId,
-    email: `${userId}@example.com`,
+    username: userId,
     level: "Silver",
     totalPoints: 385,
-    totalSubmissions: sampleHistory.length,
-    lastRecycled: sampleHistory[0].datetime,
-    submissionHistory: sampleHistory
+    stats: {
+      totalSubmissions: sampleHistory.length,
+      lastRecycled: sampleHistory[0].datetime
+    }
   };
 }
 
