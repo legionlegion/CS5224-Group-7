@@ -8,7 +8,15 @@ from dotenv import load_dotenv
 
 SECRETS_DIR = "secrets"
 SERVICE_ACCOUNT_FILE = os.path.join(SECRETS_DIR, "serviceAccountKey.json")
-load_dotenv()
+
+# Try both locations for service account key
+if not os.path.exists(SERVICE_ACCOUNT_FILE):
+    # Try in Backend directory directly
+    SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), "serviceAccountKey.json")
+
+# Load environment from .env.local in Backend directory
+env_path = os.path.join(os.path.dirname(__file__), ".env.local")
+load_dotenv(env_path)
 
 # --- CONFIGURATION ---
 WEB_API_KEY = os.getenv("NEXT_PUBLIC_FIREBASE_API_KEY")
