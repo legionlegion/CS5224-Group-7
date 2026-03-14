@@ -120,13 +120,20 @@ export async function testAuth(): Promise<{
   return request("/api/v1/test-auth");
 }
 
+interface InitUserProfileResponse {
+  status: string;
+  message: string;
+  user_id: string;
+  data: Record<string, unknown>;
+}
+
 export async function initUserProfile(username: string): Promise<void> {
   if (USE_MOCK_API) {
     // Mock implementation - user already created in Firestore by AuthContext
     return;
   }
 
-  return request("/api/v1/users/init", {
+  await request<InitUserProfileResponse>("/api/v1/users/init", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username })

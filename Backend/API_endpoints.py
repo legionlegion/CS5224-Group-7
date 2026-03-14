@@ -333,14 +333,33 @@ def init_user_profile(user_id, username, email, region_id):
         return None
 
 
+def flatten_dict(d, parent_key='', sep='.'):
+    """Flatten a nested dictionary into dot-path format."""
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
 def update_user_profile(user_id, update_fields):
-    """Update user profile fields."""
+    """Update user profile fields.
+    
+    Accepts either flat dot-path keys (e.g., 'profile.display_name') 
+    or nested objects (e.g., {'profile': {'display_name': 'John'}})
+    """
     try:
         allowed_fields = ['region_id', 'profile.display_name', 'profile.avatar_url']
         
+        # Flatten nested objects into dot-paths
+        flattened = flatten_dict(update_fields)
+        
         # Filter to only allowed fields
         filtered_updates = {}
-        for field, value in update_fields.items():
+        for field, value in flattened.items():
             if field in allowed_fields:
                 filtered_updates[field] = value
         
@@ -466,21 +485,22 @@ def verify_activity():
                 "transaction_id": transaction_id,
                 "user_id": user_id,
                 "verification_details": {
-                    "location_check_passed": location_check_passed,
+                    "gps_match": location_check_passed,
                     "distance_metres": min_distance,
                     "cv_confidence_score": cv_result['confidence'],
-                    "detected_items": cv_result['detected_items'],
-                    "nearest_bin_distance": min_distance
+                    "detected_items": cv_result['detected_items']
                 },
                 "rewards": {
                     "points_earned": points_earned,
+                    "bonus_applied": "",
                     "new_total_balance": total_points
                 },
                 "community_impact": {
-                    "region": user_region_id,
-                    "user_rank": user_rank
+                    "district": user_region_id,
+                    "district_rank": user_rank
                 },
-                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "message": "Recycling submission verified successfully"
             }
         else:
             response_data = {
@@ -488,13 +508,13 @@ def verify_activity():
                 "transaction_id": transaction_id,
                 "user_id": user_id,
                 "verification_details": {
-                    "location_check_passed": location_check_passed,
+                    "gps_match": location_check_passed,
                     "distance_metres": min_distance,
                     "cv_confidence_score": cv_result['confidence'],
-                    "detected_items": cv_result['detected_items'],
-                    "reason": "Not recyclable or too far from bin" if location_check_passed else "Location too far from recycling bin"
+                    "detected_items": cv_result['detected_items']
                 },
-                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "message": "Not recyclable or too far from bin" if location_check_passed else "Location too far from recycling bin"
             }
 
         return jsonify(response_data), 200
