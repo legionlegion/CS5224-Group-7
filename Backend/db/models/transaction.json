@@ -2,10 +2,12 @@
   "_comments": {
     "_doc_id": "Auto-generated Firestore document ID.",
     "user_id": "References the document ID in the 'users' collection (Firebase Auth UID).",
-    "nearest_bin_id": "References the document ID in the 'recycling_bins' collection.",
+    "nearest_bin_id": "References the document ID in the 'recycling_bins' collection (inc_crc).",
     "image_path": "Path in Firebase Storage, or null if image was not saved.",
     "is_counted": "true only when BOTH cv_result.is_recyclable AND location_check_passed are true.",
-    "points_awarded": "0 if is_counted is false, 1 if counted. May support higher values in future."
+    "points_awarded": "Variable points awarded for successful recycling. Currently 50 per valid submission. 0 if not counted.",
+    "gps_location": "GeoJSON Point — coordinates are [longitude, latitude].",
+    "cv_result": "Computer vision model output including detected items array and recyclability confidence."
   },
   "user_id": "uid_abc123",
   "district_id": "SG-BS",
@@ -19,9 +21,10 @@
   "cv_result": {
     "is_recyclable": true,
     "confidence": 0.97,
-    "label": "plastic_bottle"
+    "label": "recyclables",
+    "detected_items": ["plastic_bottle", "cardboard_box"]
   },
   "location_check_passed": true,
   "is_counted": true,
-  "points_awarded": 1
+  "points_awarded": 50
 }

@@ -22,7 +22,7 @@ import {
   serverTimestamp
 } from "firebase/firestore";
 import { auth, db, googleProvider, hasFirebaseConfig } from "@/lib/firebase";
-import { USE_MOCK_API } from "@/lib/api";
+import { USE_MOCK_API, initUserProfile } from "@/lib/api";
 import { AuthProviderName, UserProfile } from "@/lib/types";
 
 interface SignupInput {
@@ -168,6 +168,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             displayName: displayName || username,
             provider: "password"
           });
+
+          // Initialize user profile in backend (Firestore users collection)
+          await initUserProfile(username);
 
           const createdProfile = await getProfile(credential.user.uid);
           setProfile(createdProfile);

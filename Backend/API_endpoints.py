@@ -81,11 +81,8 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 def get_model_response(user_id, image_file):
     # For now, return mock ML model response
     # TODO: Integrate with actual computer vision model
-     # default values
-    detected_items = []
-    cv_confidence_score = 0.0
     
-    # REPLACE WITH CODE TO CALL MODEL AND GET RESPONSE
+    # Mock response - replace with actual model call
     detected_items = ["PET Bottle", "Cardboard Box"]    
     cv_confidence_score = 0.94
     
@@ -94,8 +91,11 @@ def get_model_response(user_id, image_file):
     if cv_confidence_score >= 0.8:
         is_recyclable = True
     
-    result = [detected_items, cv_confidence_score, is_recyclable]
-    return result
+    return {
+        "detected_items": detected_items,
+        "confidence": cv_confidence_score,
+        "is_recyclable": is_recyclable,
+    }
 
 # ===== FIRESTORE DATABASE FUNCTIONS =====
 
@@ -266,6 +266,104 @@ def save_transaction(user_id, district_id, gps_location, nearest_bin_id, cv_resu
         return None
 
 
+def init_user_profile(user_id, username, email, region_id):
+    """Initialize user profile in Firestore after successful auth signup."""
+    try:
+        # Check if user already exists
+        existing = db.collection('users').document(user_id).get()
+        if existing.exists:
+            logger.warning(f"User {user_id} already initialized")
+            return None
+        
+        # Create user document with defaults
+        user_data = {
+            "username": username,
+            "email": email,
+            "region_id": region_id,
+            # "district_id": None,  # TODO: Add when implementing districts
+            "created_at": datetime.utcnow(),
+            "points": 0,
+            "profile": {
+                "display_name": username,  # TODO: Customize display name from request
+                "avatar_url": None
+            },
+            "badges": [],
+            "rewards": []
+        }
+        
+        db.collection('users').document(user_id).set(user_data)
+        logger.info(f"User profile initialized: {user_id}")
+        return user_data
+    except Exception as e:
+        logger.error(f"Error initializing user profile: {str(e)}")
+        return None
+
+
+def update_user_profile(user_id, update_fields):
+    """Update user profile fields."""
+    try:
+        allowed_fields = ['region_id', 'profile.display_name', 'profile.avatar_url']
+        
+        # Filter to only allowed fields
+        filtered_updates = {}
+        for field, value in update_fields.items():
+            if field in allowed_fields:
+                filtered_updates[field] = value
+        
+        if not filtered_updates:
+            logger.warning(f"No valid fields to update for user {user_id}")
+            return False
+        
+        db.collection('users').document(user_id).update(filtered_updates)
+        logger.info(f"User profile updated: {user_id} - {list(filtered_updates.keys())}")
+        return True
+    except Exception as e:
+        logger.error(f"Error updating user profile: {str(e)}")
+        return False
+
+
+def get_all_regions():
+    """Fetch all regions from Firestore."""
+    try:
+        docs = db.collection('regions').stream()
+        
+        regions = []
+        for doc in docs:
+            data = doc.to_dict()
+            regions.append({
+                "id": doc.id,
+                "name": data.get('name', ''),
+                "code": data.get('code', '')
+            })
+        
+        logger.info(f"Retrieved {len(regions)} regions from Firestore")
+        return regions
+    except Exception as e:
+        logger.error(f"Error fetching regions: {str(e)}")
+        return []
+
+
+def get_all_districts():
+    """Fetch all districts from Firestore."""
+    try:
+        docs = db.collection('districts').stream()
+        
+        districts = []
+        for doc in docs:
+            data = doc.to_dict()
+            districts.append({
+                "id": doc.id,
+                "name": data.get('name', ''),
+                "region_id": data.get('region_id', '')
+            })
+        
+        logger.info(f"Retrieved {len(districts)} districts from Firestore")
+        return districts
+    except Exception as e:
+        logger.error(f"Error fetching districts: {str(e)}")
+        return []
+
+
 '''
 VERIFY USER RECYCLING SUBMISSION
 '''
@@ -288,7 +386,7 @@ def verify_activity():
             return jsonify({"error": "Missing required fields or file"}), 400
 
         # Get CV model response
-        cv_result = get_model_response(user_id, latitude, longitude, image_file)
+        cv_result = get_model_response(user_id, image_file)
         
         # Find nearest bin
         all_bins = get_all_bins()
@@ -515,6 +613,133 @@ def test_auth():
         logger.info(f"User id: {g.user.get('uid')}")
         return jsonify(user_info), 200
     except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+'''
+GET REGIONS
+'''
+@app.route('/api/v1/regions', methods=['GET'])
+def get_regions():
+    """Fetch all available regions for user selection."""
+    try:
+        regions = get_all_regions()
+        
+        response_data = {
+            "status": "success",
+            "data": regions
+        }
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        logger.error(f"Error fetching regions: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+'''
+GET DISTRICTS
+'''
+@app.route('/api/v1/districts', methods=['GET'])
+def get_districts():
+    """Fetch all available districts for user selection."""
+    try:
+        districts = get_all_districts()
+        
+        response_data = {
+            "status": "success",
+            "data": districts
+        }
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        logger.error(f"Error fetching districts: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+'''
+INITIALIZE USER PROFILE
+'''
+@app.route('/api/v1/users/init', methods=['POST'])
+@require_auth
+def init_user():
+    """
+    Initialize user profile after successful signup.
+    Called once after Firebase Auth creates the user account.
+    
+    Required fields in request body:
+    - username: User's username (for display)
+    - region_id: Selected region ID (default: "central")
+    """
+    try:
+        user_id = g.user['uid']
+        email = g.user.get('email', '')
+        
+        # Parse request body
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Request body required"}), 400
+        
+        username = data.get('username', '')
+        region_id = data.get('region_id', 'central')  # Default to 'central'
+        
+        if not username:
+            return jsonify({"status": "error", "message": "Username is required"}), 400
+        
+        # Initialize user profile
+        user_data = init_user_profile(user_id, username, email, region_id)
+        
+        if user_data is None:
+            return jsonify({"status": "error", "message": "User already initialized or initialization failed"}), 400
+        
+        response_data = {
+            "status": "success",
+            "message": "User profile initialized",
+            "user_id": user_id,
+            "data": user_data
+        }
+        return jsonify(response_data), 201
+    
+    except Exception as e:
+        logger.error(f"Error initializing user: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+'''
+UPDATE USER PROFILE
+'''
+@app.route('/api/v1/users/profile', methods=['PUT'])
+@require_auth
+def update_profile():
+    """
+    Update user profile information.
+    
+    Supported fields in request body:
+    - region_id: Update user's region
+    - profile.display_name: Update display name
+    - profile.avatar_url: Update avatar URL
+    """
+    try:
+        user_id = g.user['uid']
+        
+        # Parse request body
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Request body required"}), 400
+        
+        # Update profile
+        success = update_user_profile(user_id, data)
+        
+        if not success:
+            return jsonify({"status": "error", "message": "No valid fields to update"}), 400
+        
+        response_data = {
+            "status": "success",
+            "message": "User profile updated"
+        }
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        logger.error(f"Error updating user profile: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
