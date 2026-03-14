@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { ProfileStatsCard } from "@/components/profile/ProfileStatsCard";
-import { SubmissionHistoryList } from "@/components/profile/SubmissionHistoryList";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { useAuth } from "@/context/AuthContext";
@@ -58,16 +57,7 @@ export default function ProfilePage() {
         {loading ? <LoadingState label="Loading profile..." /> : null}
         {error ? <ErrorState message={error} /> : null}
         {!loading && !error && profile && stats ? (
-          <>
-            <ProfileStatsCard profile={profile} stats={stats} />
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-moss/70">History</p>
-                <h3 className="text-xl font-semibold">Submission history</h3>
-              </div>
-              <SubmissionHistoryList items={stats.submissionHistory} />
-            </div>
-          </>
+          <ProfileStatsCard profile={profile} stats={stats} />
         ) : null}
       </section>
     </AuthGuard>

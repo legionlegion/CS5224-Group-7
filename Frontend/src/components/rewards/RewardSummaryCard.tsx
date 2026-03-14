@@ -17,31 +17,42 @@ function getBadge(points: number) {
 }
 
 export function RewardSummaryCard({ result }: { result: VerifyActivityResult }) {
-  const badge = getBadge(result.newTotalBalance);
+  const newBalance = result.rewards?.new_total_balance ?? 0;
+  const pointsEarned = result.rewards?.points_earned ?? 0;
+  const bonusApplied = result.rewards?.bonus_applied ?? "None";
+  const districtRank = result.community_impact?.district_rank ?? -1;
+  const detectedItems = result.verification_details?.detected_items ?? [];
+  const badge = getBadge(newBalance);
+  const statusLabel = result.status === "success" ? "Approved" : "Rejected";
+  const message =
+    result.message ??
+    (result.status === "success"
+      ? "Recycling verified successfully."
+      : "Verification failed. Try retaking the photo with the bin in frame.");
 
   return (
     <div className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-card">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.25em] text-moss/70">Verification</p>
-          <h2 className="text-2xl font-semibold capitalize">{result.status}</h2>
+          <h2 className="text-2xl font-semibold">{statusLabel}</h2>
         </div>
         <span className={`rounded-full px-3 py-1 text-sm font-semibold ${badgeTone[badge]}`}>
           {badge}
         </span>
       </div>
-      <p className="mt-3 text-sm text-ink/70">{result.message}</p>
+      <p className="mt-3 text-sm text-ink/70">{message}</p>
       <div className="mt-5 grid grid-cols-2 gap-3">
-        <Stat label="Points Earned" value={String(result.pointsEarned)} />
-        <Stat label="New Balance" value={String(result.newTotalBalance)} />
-        <Stat label="Bonus" value={result.bonusApplied ? "Yes" : "No"} />
-        <Stat label="District Rank" value={`#${result.districtRank}`} />
+        <Stat label="Points Earned" value={String(pointsEarned)} />
+        <Stat label="New Balance" value={String(newBalance)} />
+        <Stat label="Bonus" value={bonusApplied} />
+        <Stat label="District Rank" value={districtRank > 0 ? `#${districtRank}` : "N/A"} />
       </div>
       <div className="mt-5">
         <p className="text-sm font-semibold">Detected Items</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {result.detectedItems.length ? (
-            result.detectedItems.map((item) => (
+          {detectedItems.length ? (
+            detectedItems.map((item) => (
               <span key={item} className="rounded-full bg-leaf/20 px-3 py-1 text-sm text-ink">
                 {item}
               </span>
