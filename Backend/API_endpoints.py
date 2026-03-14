@@ -5,7 +5,7 @@ import math
 
 # Firebase Auth
 import firebase_admin
-from firebase_admin import credentials
+from firebase_admin import credentials, firestore
 from auth_middleware import require_auth
 
 # Logging and env
@@ -22,7 +22,7 @@ app = Flask(__name__)
 CORS(app)
 
 if not firebase_admin._apps:
-    cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "secrets/serviceAccountKey.json"
+    cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "serviceAccountKey.json"
     
     if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
         import json
@@ -34,6 +34,9 @@ if not firebase_admin._apps:
     cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred, {'projectId': os.environ.get("GOOGLE_CLOUD_PROJECT")})
     print("Firebase initialized successfully.")
+
+# Initialize Firestore
+db = firestore.client()
 
 '''
 if not firebase_admin._apps:
@@ -75,70 +78,192 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return dist
 
 # TO EDIT WHEN INTEGRATING WITH MODEL
-def get_model_response(user_id, latitude, longitude, image_file):
-    # default values
+def get_model_response(user_id, image_file):
+    # For now, return mock ML model response
+    # TODO: Integrate with actual computer vision model
+     # default values
     detected_items = []
-    gps_match = False
-    transaction_id = ""
-    distance_metres = 0.0
     cv_confidence_score = 0.0
-    points_earned = 0
-    bonus_applied = ""
-    new_total_balance = 0
-    district = ""
-    district_rank = -1
     
     # REPLACE WITH CODE TO CALL MODEL AND GET RESPONSE
-    detected_items = ["PET Bottle", "Cardboard Box"]
-    gps_match = True
-    transaction_id = "cdcc2ef"
-    distance_metres = 2.4
+    detected_items = ["PET Bottle", "Cardboard Box"]    
     cv_confidence_score = 0.94
-    points_earned = 50
-    bonus_applied = "First-of-the-Week"
-    new_total_balance = 1250
-    district = "Tampines"
-    district_rank = 4
-
-    result = [detected_items, gps_match, transaction_id, distance_metres, cv_confidence_score, 
-              points_earned, bonus_applied, new_total_balance, district, district_rank]
+    
+    is_recyclable = False
+    # adjust threshold as needed based on model performance
+    if cv_confidence_score >= 0.8:
+        is_recyclable = True
+    
+    result = [detected_items, cv_confidence_score, is_recyclable]
     return result
 
-# TO EDIT WHEN INTEGRATING WITH DATABASE
+# ===== FIRESTORE DATABASE FUNCTIONS =====
+
 def get_all_bins():
-    return BINS_DATABASE
+    """Fetch all active recycling bins from Firestore."""
+    try:
+        bins_ref = db.collection('recycling_bins').where('is_active', '==', True)
+        docs = bins_ref.stream()
+        
+        bins = []
+        for doc in docs:
+            data = doc.to_dict()
+            bins.append({
+                "id": doc.id,
+                "address": {
+                    "block": data.get('address', {}).get('block', ''),
+                    "street": data.get('address', {}).get('street', ''),
+                    "postal_code": data.get('address', {}).get('postal_code', '')
+                },
+                "lat": data.get('location', {}).get('coordinates', [0, 0])[1],
+                "lng": data.get('location', {}).get('coordinates', [0, 0])[0],
+                "district_id": data.get('district_id', ''),
+                "description": data.get('description', '')
+            })
+        
+        logger.info(f"Retrieved {len(bins)} active bins from Firestore")
+        return bins
+    except Exception as e:
+        logger.error(f"Error fetching bins: {str(e)}")
+        return []
 
-# TO EDIT WHEN INTEGRATING WITH DATABASE
+
 def get_user_district(user_id):
-    user_district = "Tampines"
-    return user_district
+    """Fetch user's district from Firestore."""
+    try:
+        user_doc = db.collection('users').document(user_id).get()
+        
+        if user_doc.exists:
+            return user_doc.get('district_id')
+        else:
+            logger.warning(f"User {user_id} not found in Firestore")
+            return None
+    except Exception as e:
+        logger.error(f"Error fetching user district: {str(e)}")
+        return None
 
-# TO EDIT WHEN INTEGRATING WITH DATABASE
+
 def get_all_users():
-    return USERS_DB
+    """Fetch all users ordered by points (descending) from Firestore."""
+    try:
+        users_ref = db.collection('users').order_by('points', direction=firestore.Query.DESCENDING)
+        docs = users_ref.stream()
+        
+        users = []
+        for doc in docs:
+            data = doc.to_dict()
+            users.append({
+                "username": data.get('username', ''),
+                "points": data.get('points', 0),
+                "district": data.get('district_id', ''),
+                "uid": doc.id
+            })
+        
+        logger.info(f"Retrieved {len(users)} users from Firestore")
+        return users
+    except Exception as e:
+        logger.error(f"Error fetching users: {str(e)}")
+        return []
 
-# TO EDIT WHEN INTEGRATING WITH DATABASE
+
 def get_user_rank(user_id):
-    user_rank = 27
-    return user_rank
+    """Calculate user's global rank based on points."""
+    try:
+        user_doc = db.collection('users').document(user_id).get()
+        
+        if not user_doc.exists:
+            logger.warning(f"User {user_id} not found")
+            return -1
+        
+        user_points = user_doc.get('points', 0)
+        
+        # Count users with more points
+        higher_points = db.collection('users').where('points', '>', user_points).count().get()[0][0].value
+        rank = higher_points + 1
+        
+        return rank
+    except Exception as e:
+        logger.error(f"Error calculating user rank: {str(e)}")
+        return -1
 
-# TO EDIT WHEN INTEGRATING WITH DATABASE
-def get_user_db_stats(userId):
-    # default values
-    username = ""
-    totalPoints = 0
-    level = 0
-    totalSubmissions = 0
-    lastRecycled = 0
 
-    # REPLACE WITH CODE TO CALL DATABASE AND GET RESPONSE
-    username = "ZeroWasteHero"
-    totalPoints = 450
-    level = "Silver"
-    totalSubmissions = 24
-    lastRecycled = "2026-02-25T14:30:00Z"
+def get_user_db_stats(user_id):
+    """Fetch user statistics from Firestore."""
+    try:
+        user_doc = db.collection('users').document(user_id).get()
+        
+        if not user_doc.exists:
+            logger.warning(f"User {user_id} not found")
+            return None, 0, "Bronze", 0, None
+        
+        user_data = user_doc.to_dict()
+        username = user_data.get('username', '')
+        total_points = user_data.get('points', 0)
+        
+        # Determine level based on points (customizable)
+        if total_points >= 1000:
+            level = "Platinum"
+        elif total_points >= 500:
+            level = "Gold"
+        elif total_points >= 200:
+            level = "Silver"
+        else:
+            level = "Bronze"
+        
+        # Count total submissions (transactions where is_counted=true)
+        transactions = db.collection('transactions').where('user_id', '==', user_id).where('is_counted', '==', True).stream()
+        total_submissions = len(list(transactions))
+        
+        # Get last recycled timestamp
+        last_txn = db.collection('transactions').where('user_id', '==', user_id).order_by('submitted_at', direction=firestore.Query.DESCENDING).limit(1).stream()
+        last_recycled = None
+        for txn in last_txn:
+            last_recycled = txn.get('submitted_at')
+            break
+        
+        logger.info(f"User {user_id} stats: {username}, {total_points} points, {total_submissions} submissions")
+        return username, total_points, level, total_submissions, last_recycled
+    except Exception as e:
+        logger.error(f"Error fetching user stats: {str(e)}")
+        return None, 0, "Bronze", 0, None
 
-    return username, totalPoints, level, totalSubmissions, lastRecycled
+
+def save_transaction(user_id, district_id, gps_location, nearest_bin_id, cv_result, location_check_passed, points_awarded, image_path=None):
+    """Save a new transaction (recycling submission) to Firestore."""
+    try:
+        transaction_data = {
+            "user_id": user_id,
+            "district_id": district_id,
+            "submitted_at": datetime.utcnow(),
+            "gps_location": {
+                "type": "Point",
+                "coordinates": [gps_location[1], gps_location[0]]  # [lng, lat]
+            },
+            "nearest_bin_id": nearest_bin_id,
+            "cv_result": cv_result,
+            "location_check_passed": location_check_passed,
+            "is_counted": cv_result.get('is_recyclable', False) and location_check_passed,
+            "points_awarded": points_awarded if (cv_result.get('is_recyclable', False) and location_check_passed) else 0,
+            "image_path": image_path
+        }
+        
+        docref = db.collection('transactions').document()
+        docref.set(transaction_data)
+        transaction_id = docref.id
+        
+        # Update user points if transaction is counted
+        if transaction_data['is_counted']:
+            user_ref = db.collection('users').document(user_id)
+            user_ref.update({
+                'points': firestore.Increment(points_awarded)
+            })
+            logger.info(f"User {user_id} awarded {points_awarded} points")
+        
+        logger.info(f"Transaction {transaction_id} saved successfully")
+        return transaction_id
+    except Exception as e:
+        logger.error(f"Error saving transaction: {str(e)}")
+        return None
 
 
 '''
@@ -162,51 +287,88 @@ def verify_activity():
         if not all([latitude, longitude, image_file]):
             return jsonify({"error": "Missing required fields or file"}), 400
 
-        # get model response
-        detected_items, gps_match, transaction_id, distance_metres, cv_confidence_score, \
-            points_earned, bonus_applied, new_total_balance, district, \
-                district_rank = get_model_response(user_id, latitude, longitude, image_file)
+        # Get CV model response
+        cv_result = get_model_response(user_id, latitude, longitude, image_file)
+        
+        # Find nearest bin
+        all_bins = get_all_bins()
+        nearest_bin = None
+        min_distance = float('inf')
+        
+        for bin_info in all_bins:
+            dist = haversine_distance(latitude, longitude, bin_info['lat'], bin_info['lng'])
+            if dist < min_distance:
+                min_distance = dist
+                nearest_bin = bin_info
+        
+        # Location check: within 50 meters of a bin
+        location_check_passed = min_distance <= 50 if nearest_bin else False
+        
+        # Award points
+        points_earned = 50 if (cv_result['is_recyclable'] and location_check_passed) else 0
+        
+        # Get user district
+        user_district = get_user_district(user_id)
+        
+        # Save transaction to Firestore
+        transaction_id = save_transaction(
+            user_id=user_id,
+            district_id=user_district,
+            gps_location=(latitude, longitude),
+            nearest_bin_id=nearest_bin['id'] if nearest_bin else None,
+            cv_result=cv_result,
+            location_check_passed=location_check_passed,
+            points_awarded=points_earned
+        )
+        
+        # Get updated user stats
+        username, total_points, level, total_submissions, last_recycled = get_user_db_stats(user_id)
+        
+        # Get user rank
+        user_rank = get_user_rank(user_id)
 
-        # respond based on model response
-        if detected_items and gps_match:
+        # Respond based on verification results
+        if cv_result['is_recyclable'] and location_check_passed:
             response_data = {
                 "status": "success",
                 "transaction_id": transaction_id,
                 "user_id": user_id,
                 "verification_details": {
-                    "gps_match": gps_match,
-                    "distance_metres": distance_metres,
-                    "cv_confidence_score": cv_confidence_score,
-                    "detected_items": detected_items
+                    "location_check_passed": location_check_passed,
+                    "distance_metres": min_distance,
+                    "cv_confidence_score": cv_result['confidence'],
+                    "detected_items": cv_result['detected_items'],
+                    "nearest_bin_distance": min_distance
                 },
                 "rewards": {
                     "points_earned": points_earned,
-                    "bonus_applied": bonus_applied,
-                    "new_total_balance": new_total_balance
+                    "new_total_balance": total_points
                 },
                 "community_impact": {
-                    "district": district,
-                    "district_rank": district_rank
+                    "district": user_district,
+                    "user_rank": user_rank
                 },
-                "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
             }
         else:
             response_data = {
-            "status": "fail",
-            "transaction_id": transaction_id,
-            "user_id": user_id,
-            "verification_details": {
-                "gps_match": gps_match,
-                "distance_metres": distance_metres,
-                "cv_confidence_score": cv_confidence_score,
-                "detected_items": detected_items
-            },
-            "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+                "status": "fail",
+                "transaction_id": transaction_id,
+                "user_id": user_id,
+                "verification_details": {
+                    "location_check_passed": location_check_passed,
+                    "distance_metres": min_distance,
+                    "cv_confidence_score": cv_result['confidence'],
+                    "detected_items": cv_result['detected_items'],
+                    "reason": "Not recyclable or too far from bin" if location_check_passed else "Location too far from recycling bin"
+                },
+                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
             }
 
         return jsonify(response_data), 200
 
     except Exception as e:
+        logger.error(f"Error in verify_activity: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -348,7 +510,7 @@ def test_auth():
                 "email": g.user.get('email'),
                 "email_verified": g.user.get('email_verified', False)
             },
-            "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+            "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
         }
         logger.info(f"User id: {g.user.get('uid')}")
         return jsonify(user_info), 200
