@@ -212,7 +212,7 @@ def get_user_rank(user_id):
         user_points = user_doc.get('points', 0)
         
         # Count users with more points
-        higher_points = db.collection('users').where('points', '>', user_points).count().get()[0][0].value
+        higher_points = db.collection('users').where('points', '>', user_points).count().get()[0].value
         rank = higher_points + 1
         
         return rank
