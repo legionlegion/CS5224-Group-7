@@ -172,7 +172,7 @@ def get_all_users():
             users.append({
                 "username": data.get('username', ''),
                 "points": data.get('points', 0),
-                "district": data.get('district_id', ''),
+                "region_id": data.get('region_id', ''),
                 "uid": doc.id
             })
         
@@ -235,11 +235,21 @@ def get_all_user_transactions(userId):
             
             # Extract detected items from cv_result, default to empty list
             detected_items = cv_result.get('detected_items', [])
+
+            # Parse submitted_at datetime string
+            submitted_at = txn_data.get('submitted_at')
+            if hasattr(submitted_at, 'isoformat'):
+                submitted_at_value = submitted_at.isoformat()
+            elif hasattr(submitted_at, 'to_datetime'):
+                # Handle Firestore Timestamp objects
+                submitted_at_value = submitted_at.to_datetime().isoformat()
+            else:
+                submitted_at_value = submitted_at or ''
             
             # Map to SubmissionHistoryItem structure
             submission_item = {
                 'id': transaction_doc.id,  # Document ID
-                'datetime': txn_data.get('submitted_at', ''),
+                'datetime': submitted_at_value,
                 'status': status,
                 'pointsEarned': txn_data.get('points_awarded', 0),
                 'detectedItems': detected_items
@@ -292,7 +302,15 @@ def get_user_db_stats(user_id):
         last_txn = db.collection('transactions').where('user_id', '==', user_id).order_by('submitted_at', direction=firestore.Query.DESCENDING).limit(1).stream()
         last_recycled = None
         for txn in last_txn:
-            last_recycled = txn.get('submitted_at')
+            submitted_at = txn.get('submitted_at')
+            if submitted_at is not None:
+                # Ensure submitted_at is JSON-serializable (e.g., convert datetime/Firestore Timestamp to ISO string)
+                if hasattr(submitted_at, "isoformat"):
+                    last_recycled = submitted_at.isoformat()
+                elif hasattr(submitted_at, "to_datetime"):
+                    last_recycled = submitted_at.to_datetime().isoformat()
+                else:
+                    last_recycled = str(submitted_at)
             break
         
         logger.info(f"User {user_id} stats: {username}, {total_points} points, {total_submissions} submissions")
@@ -302,12 +320,12 @@ def get_user_db_stats(user_id):
         return None, 0, "Bronze", 0, None
 
 
-def save_transaction(user_id, district_id, gps_location, nearest_bin_id, cv_result, location_check_passed, points_awarded, image_path=None):
+def save_transaction(user_id, region_id, gps_location, nearest_bin_id, cv_result, location_check_passed, points_awarded, image_path=None):
     """Save a new transaction (recycling submission) to Firestore."""
     try:
         transaction_data = {
             "user_id": user_id,
-            "district_id": district_id,
+            "region_id": region_id,
             "submitted_at": datetime.utcnow(),
             "gps_location": {
                 "type": "Point",
