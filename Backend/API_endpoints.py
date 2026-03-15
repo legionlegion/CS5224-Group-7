@@ -69,14 +69,14 @@ if not firebase_admin._apps:
         firebase_admin.initialize_app()
 '''
 
-# REPLACE WITH CODE TO SEARCH BIN IN DATABASE
+# DELETE UPON INTEGRATION
 BINS_DATABASE = [
     {"id": "bin_sg_882", "address": "123 Orchard Rd, Singapore", "lat": 1.3015, "lng": 103.8378},
     {"id": "bin_sg_104", "address": "Somerset MRT, Exit B", "lat": 1.3002, "lng": 103.8390},
     {"id": "bin_sg_999", "address": "Tampines Hub", "lat": 1.3525, "lng": 103.9446},
 ]
 
-# REPLACE WITH CODE TO SEARCH USER IN DATABASE
+# DELETE UPON INTEGRATION
 USERS_DB = [
     {"username": "EcoWarrior88", "points": 1250, "district": "Tampines"},
     {"username": "GreenMachine", "points": 1100, "district": "Tampines"},
@@ -84,6 +84,9 @@ USERS_DB = [
     {"username": "NatureLover", "points": 800, "district": "Tampines"},
     {"username": "SolarPower", "points": 750, "district": "Orchard"},
 ]
+
+# DELETE UPON INTEGRATION
+USER_TRANSACTIONS = "GET_user_stats.json"
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -219,6 +222,13 @@ def get_user_rank(user_id):
     except Exception as e:
         logger.error(f"Error calculating user rank: {str(e)}")
         return -1
+
+# TO EDIT WHEN INTEGRATING WITH DATABASE
+def get_all_user_transactions(userId):
+    '''
+    Returns all user transactions encompassed in a JSON file
+    '''
+    return USER_TRANSACTIONS
 
 
 def get_user_db_stats(user_id):
@@ -642,6 +652,24 @@ def get_user_stats():
         }
 
         return jsonify(user_data), 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+
+'''
+GET ALL USER TRANSACTIONS
+'''
+@app.route('/api/v1/users/transactions', methods=['GET'])
+@require_auth
+def get_user_transactions():
+    try:
+        # get authenticated user
+        user_id = g.user['uid']
+        
+        transactions = get_all_user_transactions(user_id) # transactions should be a JSON file
+
+        return transactions, 200
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

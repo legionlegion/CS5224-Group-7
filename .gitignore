@@ -1,0 +1,47 @@
+# ============================================
+# CS5224 Project - Custom Ignores
+# ============================================
+
+# Use double asterisks to catch these folders anywhere
+**/Machine Learning/Data/**
+**/Machine Learning/Segment-Anything Model 3/**
+
+# Universal ML Weight Ignore (Catches them in ANY subfolder)
+**/*.pt
+**/*.pth
+**/*.weights
+**/*.h5
+
+# Ignore YOLO training outputs (The 'runs' folder)
+**/runs/
+
+# Huge files
+*.zip
+*.tar.gz
+*.csv
+*.parquet
+
+# ============================================
+# Python & Virtual Environments
+# ============================================
+**/__pycache__/**
+*.py[cod]
+.venv/
+venv/
+**/.env
+
+# ============================================
+# Cloud & Security (CRITICAL)
+# ============================================
+.aws/
+.azure/
+*.pem
+*.key
+secrets.json
+
+# ============================================
+# OS & IDE
+# ============================================
+.DS_Store
+.vscode/
+.idea/
