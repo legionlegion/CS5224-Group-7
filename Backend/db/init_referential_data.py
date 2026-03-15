@@ -150,85 +150,50 @@ def parse_html_description(html_string):
         return {}
 
 
-def fetch_recycling_bins_from_gov():
+def load_recycling_bins_from_file():
     """
-    Fetch recycling bin data from data.gov.sg API.
-    Returns GeoJSON FeatureCollection or None if fetch fails.
-    Includes exponential backoff for rate limiting.
-    """
-    import time
+    Load recycling bin data from local RecyclingBins.geojson file.
+    Returns GeoJSON FeatureCollection or None if load fails.
     
+    The static GeoJSON file is managed manually and doesn't require frequent API syncing.
+    """
     try:
-        logger.info("Fetching recycling bins from data.gov.sg...")
+        # Get the directory where this script is located
+        script_dir = Path(__file__).parent
+        geojson_path = script_dir / "RecyclingBins.geojson"
         
-        dataset_id = "d_4dde14826642f49eefff48b7832b90db"
-        poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{dataset_id}/poll-download"
-        
-        # Step 1: Get download URL with retry logic
-        max_retries = 3
-        base_wait = 2
-        download_url = None
-        
-        for attempt in range(max_retries):
-            try:
-                response = requests.get(poll_url, timeout=30)
-                
-                # Accept both 200 and 201 as success
-                if response.status_code in [200, 201]:
-                    poll_data = response.json()
-                    
-                    # Check API response code
-                    if poll_data.get('code') == 0:
-                        download_url = poll_data['data']['url']
-                        logger.info("Got download URL")
-                        break  # Success, exit retry loop
-                    else:
-                        logger.error(f"API Error: {poll_data.get('errorMsg', 'Unknown error')}")
-                        return None
-                
-                elif response.status_code == 429:
-                    # Rate limited - exponential backoff
-                    wait_time = base_wait * (2 ** attempt)
-                    logger.warning(f"Rate limited (429). Waiting {wait_time}s before retry...")
-                    time.sleep(wait_time)
-                    continue
-                
-                else:
-                    logger.error(f"Poll failed with status {response.status_code}")
-                    return None
-            
-            except requests.exceptions.Timeout:
-                if attempt < max_retries - 1:
-                    wait_time = base_wait * (2 ** attempt)
-                    logger.warning(f"Timeout on poll request. Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
-                else:
-                    logger.error("Poll request timeout after retries")
-                    return None
-        
-        if download_url is None:
-            logger.error("Failed to get download URL after retries")
+        if not geojson_path.exists():
+            logger.error(f"GeoJSON file not found at: {geojson_path}")
             return None
         
-        # Step 2: Download GeoJSON file
-        response = requests.get(download_url, timeout=30)
-        response.raise_for_status()
+        logger.info(f"Loading recycling bins from {geojson_path.name}...")
         
-        geojson_data = response.json()
+        with open(geojson_path, 'r', encoding='utf-8') as f:
+            geojson_data = json.load(f)
+        
         feature_count = len(geojson_data.get('features', []))
-        logger.info(f"Downloaded GeoJSON with {feature_count} features")
+        logger.info(f"Loaded GeoJSON with {feature_count} features")
         
         return geojson_data
     
-    except requests.RequestException as e:
-        logger.error(f"Network error fetching bins: {str(e)}")
-        return None
     except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON response: {str(e)}")
+        logger.error(f"Invalid JSON in GeoJSON file: {str(e)}")
         return None
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Error loading GeoJSON file: {str(e)}")
         return None
+
+
+def fetch_recycling_bins_from_gov():
+    """
+    [DEPRECATED] Fetch recycling bin data from data.gov.sg API.
+    
+    This method is kept for reference but is no longer used.
+    Use load_recycling_bins_from_file() instead to load from the static RecyclingBins.geojson file.
+    The API approach had rate-limiting issues and poor reliability for bulk data.
+    """
+    logger.warning("fetch_recycling_bins_from_gov() is deprecated. Use load_recycling_bins_from_file() instead.")
+    return None
 
 
 def seed_regions(db):
@@ -300,20 +265,17 @@ def seed_districts(db):
 
 
 def seed_recycling_bins(db):
-    """Seed recycling bin data from data.gov.sg. Limit to first 1000 for now."""
+    """Seed recycling bin data from local RecyclingBins.geojson file."""
     try:
-        # Fetch live data from API
-        geojson = fetch_recycling_bins_from_gov()
+        # Load from local file instead of API
+        geojson = load_recycling_bins_from_file()
         if not geojson or 'features' not in geojson:
-            logger.error("Failed to fetch recycling bins. Skipping seed.")
+            logger.error("Failed to load recycling bins. Skipping seed.")
             return 0
         
         features = geojson['features']
         
-        # Limit to first 1000 bins for now
-        MAX_BINS = 1000
-        features = features[:MAX_BINS]
-        logger.info(f"Processing first {len(features)} of {len(geojson['features'])} bins...")
+        logger.info(f"Processing {len(features)} bins...")
         
         # Delete existing bins
         if not delete_collection(db, 'recycling_bins'):
