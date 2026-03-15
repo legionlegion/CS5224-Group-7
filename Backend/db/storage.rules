@@ -5,9 +5,9 @@ service firebase.storage {
 
     // -------------------------------------------------------
     // Recycling submission images
-    // Path: /uploads/{userId}/{filename}
+    // Path: /uploads/{userId}/{allPaths=**}
     // -------------------------------------------------------
-    match /uploads/{userId}/{filename} {
+    match /uploads/{userId}/{allPaths=**} {
       // Only the owning user can read their own uploaded images
       allow read: if request.auth != null && request.auth.uid == userId;
 
