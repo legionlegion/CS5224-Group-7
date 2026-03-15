@@ -69,26 +69,6 @@ if not firebase_admin._apps:
         firebase_admin.initialize_app()
 '''
 
-# DELETE UPON INTEGRATION
-BINS_DATABASE = [
-    {"id": "bin_sg_882", "address": "123 Orchard Rd, Singapore", "lat": 1.3015, "lng": 103.8378},
-    {"id": "bin_sg_104", "address": "Somerset MRT, Exit B", "lat": 1.3002, "lng": 103.8390},
-    {"id": "bin_sg_999", "address": "Tampines Hub", "lat": 1.3525, "lng": 103.9446},
-]
-
-# DELETE UPON INTEGRATION
-USERS_DB = [
-    {"username": "EcoWarrior88", "points": 1250, "district": "Tampines"},
-    {"username": "GreenMachine", "points": 1100, "district": "Tampines"},
-    {"username": "RecycleQueen", "points": 950, "district": "Orchard"},
-    {"username": "NatureLover", "points": 800, "district": "Tampines"},
-    {"username": "SolarPower", "points": 750, "district": "Orchard"},
-]
-
-# DELETE UPON INTEGRATION
-USER_TRANSACTIONS = "GET_user_stats.json"
-
-
 def haversine_distance(lat1, lon1, lat2, lon2):
     """Calculate haversine distance in meters."""
     R = 6371000
@@ -226,9 +206,59 @@ def get_user_rank(user_id):
 # TO EDIT WHEN INTEGRATING WITH DATABASE
 def get_all_user_transactions(userId):
     '''
-    Returns all user transactions encompassed in a JSON file
+    Returns all user transactions as a JSON object with proper mapping.
+    
+    Maps from Firestore transaction documents to frontend SubmissionHistoryItem structure:
+    - id: transaction document ID
+    - datetime: submitted_at timestamp
+    - status: derived from is_counted and cv_result.is_recyclable
+    - pointsEarned: points_awarded from database
+    - detectedItems: cv_result.detected_items array
     '''
-    return USER_TRANSACTIONS
+    try:
+        transactions_from_db = db.collection('transactions').where('user_id', '==', userId).order_by('submitted_at', direction=firestore.Query.DESCENDING).stream()
+        
+        transactions_list = []
+        
+        for transaction_doc in transactions_from_db:
+            txn_data = transaction_doc.to_dict()
+            
+            # Determine status based on is_counted and cv_result.is_recyclable
+            is_counted = txn_data.get('is_counted', False)
+            cv_result = txn_data.get('cv_result', {})
+            is_recyclable = cv_result.get('is_recyclable', False)
+            
+            if is_counted and is_recyclable:
+                status = "approved"
+            else:
+                status = "rejected"
+            
+            # Extract detected items from cv_result, default to empty list
+            detected_items = cv_result.get('detected_items', [])
+            
+            # Map to SubmissionHistoryItem structure
+            submission_item = {
+                'id': transaction_doc.id,  # Document ID
+                'datetime': txn_data.get('submitted_at', ''),
+                'status': status,
+                'pointsEarned': txn_data.get('points_awarded', 0),
+                'detectedItems': detected_items
+            }
+            
+            transactions_list.append(submission_item)
+        
+        # Return as JSON response
+        return jsonify({
+            'status': 'success',
+            'data': transactions_list
+        })
+    
+    except Exception as e:
+        logger.error(f"Error fetching user transactions for {userId}: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500 
 
 
 def get_user_db_stats(user_id):
@@ -256,7 +286,7 @@ def get_user_db_stats(user_id):
         
         # Count total submissions (transactions where is_counted=true)
         count_result = db.collection('transactions').where('user_id', '==', user_id).where('is_counted', '==', True).count().get()
-        total_submissions = count_result[0][0].value
+        total_submissions = count_result[0].value
         
         # Get last recycled timestamp
         last_txn = db.collection('transactions').where('user_id', '==', user_id).order_by('submitted_at', direction=firestore.Query.DESCENDING).limit(1).stream()
