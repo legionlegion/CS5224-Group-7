@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from datetime import datetime
 import math
+import requests
 
 # Firebase Auth
 import firebase_admin
@@ -19,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["http://localhost:3000"])
 
 if not firebase_admin._apps:
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "secrets/serviceAccountKey.json"
@@ -74,7 +75,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     dist = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return dist
 
-# TO EDIT WHEN INTEGRATING WITH MODEL
+# Helper function to call ML server
 def get_model_response(user_id, latitude, longitude, image_file):
     # default values
     detected_items = []
@@ -88,19 +89,33 @@ def get_model_response(user_id, latitude, longitude, image_file):
     district = ""
     district_rank = -1
     
-    # REPLACE WITH CODE TO CALL MODEL AND GET RESPONSE
-    detected_items = ["PET Bottle", "Cardboard Box"]
-    gps_match = True
+    # Call FastAPI ML server that returns a boolean (true/false)
+    ml_predict_url = os.getenv("ML_PREDICT_URL", "http://127.0.0.1:5001/predict")
+    model_verified = False
+    try:
+        files = {"file": image_file.stream}
+        response = requests.post(ml_predict_url, files=files, timeout=10)
+        response.raise_for_status()
+        ml_result = response.json()
+        if isinstance(ml_result, bool):
+            model_verified = ml_result
+        else:
+            logger.warning(f"Unexpected ML response format: {ml_result}")
+    except Exception as e:
+        logger.error(f"ML server call failed: {e}")
+
+    detected_items = ["ModelVerified"] if model_verified else []
+    gps_match = model_verified
     transaction_id = "cdcc2ef"
     distance_metres = 2.4
-    cv_confidence_score = 0.94
-    points_earned = 50
+    cv_confidence_score = 1.0 if model_verified else 0.0
+    points_earned = 50 if model_verified else 0
     bonus_applied = "First-of-the-Week"
     new_total_balance = 1250
     district = "Tampines"
     district_rank = 4
 
-    result = [detected_items, gps_match, transaction_id, distance_metres, cv_confidence_score, 
+    result = [detected_items, gps_match, transaction_id, distance_metres, cv_confidence_score,
               points_earned, bonus_applied, new_total_balance, district, district_rank]
     return result
 
@@ -139,6 +154,29 @@ def get_user_db_stats(userId):
     lastRecycled = "2026-02-25T14:30:00Z"
 
     return username, totalPoints, level, totalSubmissions, lastRecycled
+
+
+'''
+TEST ENDPOINT - CALLS get_model_response
+'''
+@app.route('/api/v1/test-model', methods=['POST'])
+def test_model():
+    try:
+        image_file = request.files.get('Image')
+        if not image_file:
+            return jsonify({"error": "Missing image file"}), 400
+        
+        detected_items, gps_match, transaction_id, distance_metres, cv_confidence_score, \
+            points_earned, bonus_applied, new_total_balance, district, \
+                district_rank = get_model_response("test-user", 1.3015, 103.8378, image_file)
+        
+        return jsonify({
+            "status": "success" if gps_match else "fail",
+            "detected_items": detected_items,
+            "gps_match": gps_match
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 '''

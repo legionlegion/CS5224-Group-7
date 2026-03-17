@@ -120,4 +120,23 @@ export async function testAuth(): Promise<{
   return request("/api/v1/test-auth");
 }
 
+export async function testModel(): Promise<VerifyActivityResult> {
+  const response = await fetch('/test.jpg');
+  const blob = await response.blob();
+  const imageFile = new File([blob], 'test.jpg', { type: 'image/jpeg' });
+  
+  const formData = new FormData();
+  formData.append("Image", imageFile);
+  formData.append("Latitude", "1.3015");
+  formData.append("Longitude", "103.8378");
+  
+  return request<VerifyActivityResult>("/api/v1/test-model", {
+    method: "POST",
+    body: formData
+  });
+}
+
+
+
+
 export { USE_MOCK_API };
