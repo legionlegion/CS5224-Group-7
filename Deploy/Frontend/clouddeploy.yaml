@@ -1,0 +1,61 @@
+apiVersion: deploy.cloud.google.com/v1
+kind: DeliveryPipeline
+metadata:
+  name: frontend-pipeline
+description: Frontend pipeline
+serialPipeline:
+  stages:
+    - targetId: frontend-dev
+      profiles: ["dev"]
+    - targetId: frontend-uat
+      profiles: ["uat"]
+      strategy:
+        standard: {}
+    - targetId: frontend-prod
+      profiles: ["prod"]
+      strategy:
+        standard: {}
+
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: frontend-dev
+description: Frontend dev target
+run:
+  location: projects/cs5224-grp7/locations/us-west2
+executionConfigs:
+  - usages: ["RENDER", "DEPLOY"]
+    defaultPool:
+      serviceAccount: cloud-deploy-executor@DEV_PROJECT_ID.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-clouddeploy
+
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: frontend-uat
+description: Frontend uat target
+requireApproval: true
+run:
+  location: projects/cs5224-grp7/locations/us-west2
+executionConfigs:
+  - usages: ["RENDER", "DEPLOY"]
+    defaultPool:
+      serviceAccount: cloud-deploy-executor@cs5224-grp7.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-clouddeploy
+
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: frontend-prod
+description: Frontend prod target
+requireApproval: true
+run:
+  location: projects/cs5224-grp7/locations/us-west2
+executionConfigs:
+  - usages: ["RENDER", "DEPLOY"]
+    defaultPool:
+      serviceAccount: cloud-deploy-executor@cs5224-grp7.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-clouddeploy

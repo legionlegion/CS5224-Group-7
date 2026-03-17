@@ -1,0 +1,15 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: recycling-backend-prod
+spec:
+  template:
+    spec:
+      serviceAccountName: backend-run-prod@cs5224-grp7.iam.gserviceaccount.com
+      containers:
+        - image: backend-image
+          env:
+            - name: PORT
+              value: "8080"
+            - name: GOOGLE_CLOUD_PROJECT
+              value: "cs5224-grp7"
