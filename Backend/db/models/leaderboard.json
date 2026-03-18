@@ -1,0 +1,94 @@
+{
+  "_comments": {
+    "_doc_id": "Use the month string as the document ID (e.g. '2025-01') for direct lookups.",
+    "district_rankings": "Ordered array sorted by total_score descending. Rank 1 = highest score.",
+    "user_rankings": "Ordered array within each district, sorted by score descending.",
+    "badge_awarded": "null if the user did not earn a badge for this month.",
+    "computed_at": "Timestamp of when the batch job last computed this leaderboard entry."
+  },
+  "month": "2025-01",
+  "computed_at": "2025-02-01T00:00:00.000Z",
+  "district_rankings": [
+    {
+      "rank": 1,
+      "district_id": "SG-HG",
+      "district_name": "Hougang",
+      "total_score": 312,
+      "user_rankings": [
+        {
+          "rank": 1,
+          "user_id": "uid_abc123",
+          "username": "alice_sg",
+          "score": 42,
+          "badge_awarded": "individual_top3"
+        },
+        {
+          "rank": 2,
+          "user_id": "uid_def456",
+          "username": "bob_sg",
+          "score": 38,
+          "badge_awarded": "individual_top3"
+        },
+        {
+          "rank": 3,
+          "user_id": "uid_ghi789",
+          "username": "carol_sg",
+          "score": 35,
+          "badge_awarded": "individual_top3"
+        },
+        {
+          "rank": 4,
+          "user_id": "uid_jkl012",
+          "username": "dave_sg",
+          "score": 29,
+          "badge_awarded": null
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "district_id": "SG-WDL",
+      "district_name": "Woodlands",
+      "total_score": 289,
+      "user_rankings": [
+        {
+          "rank": 1,
+          "user_id": "uid_mno345",
+          "username": "eve_sg",
+          "score": 55,
+          "badge_awarded": "individual_top3"
+        }
+      ]
+    }
+  ],
+  "global_rankings": [
+    {
+      "rank": 1,
+      "user_id": "uid_abc123",
+      "username": "alice_sg",
+      "score": 42,
+      "badge_awarded": "Global_top1"
+    },
+    {
+      "rank": 2,
+      "user_id": "uid_def456",
+      "username": "bob_sg",
+      "score": 38,
+      "badge_awarded": "Global_top2"
+    },
+    {
+      "rank": 3,
+      "user_id": "uid_ghi789",
+      "username": "carol_sg",
+      "score": 35,
+      "badge_awarded": "Global_top3"
+    },
+    {
+      "rank": 4,
+      "user_id": "uid_jkl012",
+      "username": "dave_sg",
+      "score": 29,
+      "badge_awarded": null
+    }
+  ]
+}

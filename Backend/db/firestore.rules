@@ -1,0 +1,101 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // -------------------------------------------------------
+    // users/{userId}
+    // -------------------------------------------------------
+    match /users/{userId} {
+      // A user can read and update their own document
+      allow read, update: if isSignedIn() && isOwner(userId);
+      // Only backend (via Admin SDK) should create/delete users
+      allow create, delete: if false;
+    }
+
+    // -------------------------------------------------------
+    // transactions/{transactionId}
+    // -------------------------------------------------------
+    match /transactions/{transactionId} {
+      // A user can read their own transactions
+      allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      // Only backend creates transactions (CV + location check logic)
+      allow create, update, delete: if false;
+    }
+
+    // -------------------------------------------------------
+    // recycling_bins/{binId}
+    // -------------------------------------------------------
+    match /recycling_bins/{binId} {
+      // Any signed-in user can read bin locations
+      allow read: if isSignedIn();
+      // Only backend batch job writes bin data
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------
+    // districts/{districtId}
+    // -------------------------------------------------------
+    match /districts/{districtId} {
+      // Public read — needed for leaderboard display
+      allow read: if true;
+      // Only backend can write
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------
+    // leaderboard/{leaderboardId}
+    // -------------------------------------------------------
+    match /leaderboard/{leaderboardId} {
+      // Public read — leaderboard is visible to all
+      allow read: if true;
+      // Only backend batch job writes leaderboard entries
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------
+    // profiles/{uid}
+    // -------------------------------------------------------
+    match /profiles/{uid} {
+      // A user can read and update their own profile
+      allow read, update: if isSignedIn() && isOwner(uid);
+      // A user can create their own profile only during signup
+      allow create: if isSignedIn() && isOwner(uid);
+      // Users cannot delete profiles
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------
+    // usernames/{username}
+    // -------------------------------------------------------
+    match /usernames/{username} {
+      // Public read — check username availability
+      allow read: if true;
+      // Only users can reserve usernames during signup
+      allow create: if isSignedIn();
+      // Users cannot modify or delete username reservations
+      allow update, delete: if false;
+    }
+
+    // -------------------------------------------------------
+    // regions/{regionId}
+    // -------------------------------------------------------
+    match /regions/{regionId} {
+      // Public read — regions are reference data
+      allow read: if true;
+      // Only backend can write
+      allow write: if false;
+    }
+  }
+}
