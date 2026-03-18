@@ -51,13 +51,9 @@ async def predict(file: UploadFile = File(...)):
         pred["class_name"] for pred in predictions if pred["class_name"] in ALLOWED_CLASSES
     }
     
-    has_bluebin = "Bluebins" in detected_classes
-    has_recyclable = any(
-        class_name != "Bluebins" and class_name != "Trash"
-        for class_name in detected_classes
-    )
-
-    return has_bluebin and has_recyclable
+    # Return list of recyclable items (all detected except Trash)
+    recyclable_items = list(detected_classes - {"Trash"})
+    return recyclable_items
   
 if __name__ == "__main__":
   uvicorn.run("main:app", host="127.0.0.1", port=5001, reload=True)

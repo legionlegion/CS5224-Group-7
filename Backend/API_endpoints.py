@@ -6,7 +6,7 @@ import requests
 
 # Firebase Auth
 import firebase_admin
-from firebase_admin import credentials
+from firebase_admin import credentials, firestore
 from auth_middleware import require_auth
 
 # Logging and env
@@ -23,18 +23,40 @@ app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"])
 
 if not firebase_admin._apps:
-    cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "secrets/serviceAccountKey.json"
+    cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "serviceAccountKey.json"
     
-    if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
-        import json
-        with open(cred_path) as f:
-            data = json.load(f)
-            os.environ["GOOGLE_CLOUD_PROJECT"] = data.get("project_id")
-            print(f"JSON: Pulled project_id from serviceAccountKey: {os.environ['GOOGLE_CLOUD_PROJECT']}")
+    # Check if credential file exists
+    if os.path.exists(cred_path):
+        if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
+            import json
+            try:
+                with open(cred_path) as f:
+                    data = json.load(f)
+                    os.environ["GOOGLE_CLOUD_PROJECT"] = data.get("project_id")
+                    logger.info("Project ID loaded from credentials file")
+            except (IOError, json.JSONDecodeError) as e:
+                logger.error(f"Failed to load credentials file: {e}")
+                raise
 
-    cred = credentials.Certificate(cred_path)
-    firebase_admin.initialize_app(cred, {'projectId': os.environ.get("GOOGLE_CLOUD_PROJECT")})
-    print("Firebase initialized successfully.")
+        try:
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred, {'projectId': os.environ.get("GOOGLE_CLOUD_PROJECT")})
+            logger.info("Firebase initialized with credentials file")
+        except Exception as e:
+            logger.error(f"Failed to initialize Firebase with credentials: {e}")
+            raise
+    else:
+        # Fallback to Application Default Credentials (ADC) / emulator
+        logger.info("Credentials file not found. Using Application Default Credentials")
+        try:
+            firebase_admin.initialize_app()
+            logger.info("Firebase initialized with default credentials")
+        except Exception as e:
+            logger.error(f"Failed to initialize Firebase with default credentials: {e}")
+            raise
+
+# Initialize Firestore
+db = firestore.client()
 
 '''
 if not firebase_admin._apps:
@@ -48,23 +70,6 @@ if not firebase_admin._apps:
         firebase_admin.initialize_app()
 '''
 
-# REPLACE WITH CODE TO SEARCH BIN IN DATABASE
-BINS_DATABASE = [
-    {"id": "bin_sg_882", "address": "123 Orchard Rd, Singapore", "lat": 1.3015, "lng": 103.8378},
-    {"id": "bin_sg_104", "address": "Somerset MRT, Exit B", "lat": 1.3002, "lng": 103.8390},
-    {"id": "bin_sg_999", "address": "Tampines Hub", "lat": 1.3525, "lng": 103.9446},
-]
-
-# REPLACE WITH CODE TO SEARCH USER IN DATABASE
-USERS_DB = [
-    {"username": "EcoWarrior88", "points": 1250, "district": "Tampines"},
-    {"username": "GreenMachine", "points": 1100, "district": "Tampines"},
-    {"username": "RecycleQueen", "points": 950, "district": "Orchard"},
-    {"username": "NatureLover", "points": 800, "district": "Tampines"},
-    {"username": "SolarPower", "points": 750, "district": "Orchard"},
-]
-
-
 def haversine_distance(lat1, lon1, lat2, lon2):
     """Calculate haversine distance in meters."""
     R = 6371000
@@ -75,86 +80,407 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     dist = 2 * R * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return dist
 
-# Helper function to call ML server
-def get_model_response(user_id, latitude, longitude, image_file):
-    # default values
-    prediction = False
-    gps_match = False
-    transaction_id = ""
-    distance_metres = 0.0
-    cv_confidence_score = 0.0
-    points_earned = 0
-    bonus_applied = ""
-    new_total_balance = 0
-    district = ""
-    district_rank = -1
-    
-    # Call FastAPI ML server that returns a boolean (true/false)
+# TO EDIT WHEN INTEGRATING WITH MODEL
+def get_model_response(user_id, image_file):
+
+    # Call FastAPI ML server that returns a list of recyclable items
     ml_predict_url = os.getenv("ML_PREDICT_URL", "http://127.0.0.1:5001/predict")
-    model_verified = False
+    detected_items = []
     try:
         files = {"file": image_file.stream}
         response = requests.post(ml_predict_url, files=files, timeout=10)
         response.raise_for_status()
         ml_result = response.json()
-        if isinstance(ml_result, bool):
-            prediction = ml_result
+        if isinstance(ml_result, list):
+            detected_items = ml_result
         else:
             logger.warning(f"Unexpected ML response format: {ml_result}")
     except Exception as e:
         logger.error(f"ML server call failed: {e}")
+    
+    is_recyclable = len(detected_items) > 0
 
-    gps_match = model_verified
-    transaction_id = "cdcc2ef"
-    distance_metres = 2.4
-    cv_confidence_score = 1.0 if model_verified else 0.0
-    points_earned = 50 if model_verified else 0
-    bonus_applied = "First-of-the-Week"
-    new_total_balance = 1250
-    district = "Tampines"
-    district_rank = 4
+    return {
+        "detected_items": detected_items,
+        "is_recyclable": is_recyclable,
+    }
 
-    result = [prediction, gps_match, transaction_id, distance_metres, cv_confidence_score,
-              points_earned, bonus_applied, new_total_balance, district, district_rank]
-    return result
+# ===== FIRESTORE DATABASE FUNCTIONS =====
 
-# TO EDIT WHEN INTEGRATING WITH DATABASE
+def format_address(address_obj):
+    """Format structured address object into a single string."""
+    parts = []
+    block = address_obj.get('block', '').strip()
+    street = address_obj.get('street', '').strip()
+    postal_code = address_obj.get('postal_code', '').strip()
+    
+    if block:
+        parts.append(f"Block {block}")
+    if street:
+        parts.append(street)
+    if postal_code:
+        parts.append(postal_code)
+    
+    return ", ".join(parts) if parts else "Address not available"
+
+
 def get_all_bins():
-    return BINS_DATABASE
+    """Fetch all active recycling bins from Firestore."""
+    try:
+        bins_ref = db.collection('recycling_bins').where('is_active', '==', True)
+        docs = bins_ref.stream()
+        
+        bins = []
+        for doc in docs:
+            data = doc.to_dict()
+            address_formatted = format_address(data.get('address', {}))
+            
+            bins.append({
+                "id": doc.id,
+                "address": address_formatted,
+                "lat": data.get('location', {}).get('coordinates', [0, 0])[1],
+                "lng": data.get('location', {}).get('coordinates', [0, 0])[0],
+                "district_id": data.get('district_id', ''),
+                "description": data.get('description', '')
+            })
+        
+        logger.info(f"Retrieved {len(bins)} active bins from Firestore")
+        return bins
+    except Exception as e:
+        logger.error(f"Error fetching bins: {str(e)}")
+        return []
 
-# TO EDIT WHEN INTEGRATING WITH DATABASE
-def get_user_district(user_id):
-    user_district = "Tampines"
-    return user_district
 
-# TO EDIT WHEN INTEGRATING WITH DATABASE
+def get_user_region(user_id):
+    """Fetch user's region from Firestore."""
+    try:
+        user_doc = db.collection('users').document(user_id).get()
+        
+        if user_doc.exists:
+            return user_doc.get('region_id', None)
+        else:
+            logger.warning(f"User {user_id} not found in Firestore")
+            return None
+    except Exception as e:
+        logger.error(f"Error fetching user region: {str(e)}")
+        return None
+
+
 def get_all_users():
-    return USERS_DB
+    """Fetch all users ordered by points (descending) from Firestore."""
+    try:
+        users_ref = db.collection('users').order_by('points', direction=firestore.Query.DESCENDING)
+        docs = users_ref.stream()
+        
+        users = []
+        for doc in docs:
+            data = doc.to_dict()
+            users.append({
+                "username": data.get('username', ''),
+                "points": data.get('points', 0),
+                "region_id": data.get('region_id', ''),
+                "uid": doc.id
+            })
+        
+        logger.info(f"Retrieved {len(users)} users from Firestore")
+        return users
+    except Exception as e:
+        logger.error(f"Error fetching users: {str(e)}")
+        return []
 
-# TO EDIT WHEN INTEGRATING WITH DATABASE
+
 def get_user_rank(user_id):
-    user_rank = 27
-    return user_rank
+    """Calculate user's global rank based on points."""
+    try:
+        user_doc = db.collection('users').document(user_id).get()
+        
+        if not user_doc.exists:
+            logger.warning(f"User {user_id} not found")
+            return -1
+        
+        user_points = user_doc.get('points', 0)
+        
+        # Count users with more points
+        higher_points = db.collection('users').where('points', '>', user_points).count().get()[0].value
+        rank = higher_points + 1
+        
+        return rank
+    except Exception as e:
+        logger.error(f"Error calculating user rank: {str(e)}")
+        return -1
 
 # TO EDIT WHEN INTEGRATING WITH DATABASE
-def get_user_db_stats(userId):
-    # default values
-    username = ""
-    totalPoints = 0
-    level = 0
-    totalSubmissions = 0
-    lastRecycled = 0
+def get_all_user_transactions(userId):
+    '''
+    Returns all user transactions as a JSON object with proper mapping.
+    
+    Maps from Firestore transaction documents to frontend SubmissionHistoryItem structure:
+    - id: transaction document ID
+    - datetime: submitted_at timestamp
+    - status: derived from is_counted and cv_result.is_recyclable
+    - pointsEarned: points_awarded from database
+    - detectedItems: cv_result.detected_items array
+    '''
+    try:
+        transactions_from_db = db.collection('transactions').where('user_id', '==', userId).order_by('submitted_at', direction=firestore.Query.DESCENDING).stream()
+        
+        transactions_list = []
+        
+        for transaction_doc in transactions_from_db:
+            txn_data = transaction_doc.to_dict()
+            
+            # Determine status based on is_counted and cv_result.is_recyclable
+            is_counted = txn_data.get('is_counted', False)
+            cv_result = txn_data.get('cv_result', {})
+            is_recyclable = cv_result.get('is_recyclable', False)
+            
+            if is_counted and is_recyclable:
+                status = "approved"
+            else:
+                status = "rejected"
+            
+            # Extract detected items from cv_result, default to empty list
+            detected_items = cv_result.get('detected_items', [])
 
-    # REPLACE WITH CODE TO CALL DATABASE AND GET RESPONSE
-    username = "ZeroWasteHero"
-    totalPoints = 450
-    level = "Silver"
-    totalSubmissions = 24
-    lastRecycled = "2026-02-25T14:30:00Z"
+            # Parse submitted_at datetime string
+            submitted_at = txn_data.get('submitted_at')
+            if hasattr(submitted_at, 'isoformat'):
+                submitted_at_value = submitted_at.isoformat()
+            elif hasattr(submitted_at, 'to_datetime'):
+                # Handle Firestore Timestamp objects
+                submitted_at_value = submitted_at.to_datetime().isoformat()
+            else:
+                submitted_at_value = submitted_at or ''
+            
+            # Map to SubmissionHistoryItem structure
+            submission_item = {
+                'id': transaction_doc.id,  # Document ID
+                'datetime': submitted_at_value,
+                'status': status,
+                'pointsEarned': txn_data.get('points_awarded', 0),
+                'detectedItems': detected_items
+            }
+            
+            transactions_list.append(submission_item)
+        
+        # Return as JSON response
+        return jsonify({
+            'status': 'success',
+            'data': transactions_list
+        })
+    
+    except Exception as e:
+        logger.error(f"Error fetching user transactions for {userId}: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500 
 
-    return username, totalPoints, level, totalSubmissions, lastRecycled
+
+def get_user_db_stats(user_id):
+    """Fetch user statistics from Firestore."""
+    try:
+        user_doc = db.collection('users').document(user_id).get()
+        
+        if not user_doc.exists:
+            logger.warning(f"User {user_id} not found")
+            return None, 0, "Bronze", 0, None
+        
+        user_data = user_doc.to_dict()
+        username = user_data.get('username', '')
+        total_points = user_data.get('points', 0)
+        
+        # Determine level based on points (customizable)
+        if total_points >= 1000:
+            level = "Platinum"
+        elif total_points >= 500:
+            level = "Gold"
+        elif total_points >= 200:
+            level = "Silver"
+        else:
+            level = "Bronze"
+        
+        # Count total submissions (transactions where is_counted=true)
+        count_result = db.collection('transactions').where('user_id', '==', user_id).where('is_counted', '==', True).count().get()
+        total_submissions = count_result[0].value
+        
+        # Get last recycled timestamp
+        last_txn = db.collection('transactions').where('user_id', '==', user_id).order_by('submitted_at', direction=firestore.Query.DESCENDING).limit(1).stream()
+        last_recycled = None
+        for txn in last_txn:
+            submitted_at = txn.get('submitted_at')
+            if submitted_at is not None:
+                # Ensure submitted_at is JSON-serializable (e.g., convert datetime/Firestore Timestamp to ISO string)
+                if hasattr(submitted_at, "isoformat"):
+                    last_recycled = submitted_at.isoformat()
+                elif hasattr(submitted_at, "to_datetime"):
+                    last_recycled = submitted_at.to_datetime().isoformat()
+                else:
+                    last_recycled = str(submitted_at)
+            break
+        
+        logger.info(f"User {user_id} stats: {username}, {total_points} points, {total_submissions} submissions")
+        return username, total_points, level, total_submissions, last_recycled
+    except Exception as e:
+        logger.error(f"Error fetching user stats: {str(e)}")
+        return None, 0, "Bronze", 0, None
 
 
+def save_transaction(user_id, region_id, gps_location, nearest_bin_id, cv_result, location_check_passed, points_awarded, image_path=None):
+    """Save a new transaction (recycling submission) to Firestore."""
+    try:
+        transaction_data = {
+            "user_id": user_id,
+            "region_id": region_id,
+            "submitted_at": datetime.utcnow(),
+            "gps_location": {
+                "type": "Point",
+                "coordinates": [gps_location[1], gps_location[0]]  # [lng, lat]
+            },
+            "nearest_bin_id": nearest_bin_id,
+            "cv_result": cv_result,
+            "location_check_passed": location_check_passed,
+            "is_counted": cv_result.get('is_recyclable', False) and location_check_passed,
+            "points_awarded": points_awarded if (cv_result.get('is_recyclable', False) and location_check_passed) else 0,
+            "image_path": image_path
+        }
+        
+        docref = db.collection('transactions').document()
+        docref.set(transaction_data)
+        transaction_id = docref.id
+        
+        # Update user points if transaction is counted
+        if transaction_data['is_counted']:
+            user_ref = db.collection('users').document(user_id)
+            user_ref.update({
+                'points': firestore.Increment(points_awarded)
+            })
+            logger.info(f"User {user_id} awarded {points_awarded} points")
+        
+        logger.info(f"Transaction {transaction_id} saved successfully")
+        return transaction_id
+    except Exception as e:
+        logger.error(f"Error saving transaction: {str(e)}")
+        return None
+
+
+def init_user_profile(user_id, username, email, region_id):
+    """Initialize user profile in Firestore after successful auth signup."""
+    try:
+        # Check if user already exists
+        existing = db.collection('users').document(user_id).get()
+        if existing.exists:
+            logger.warning(f"User {user_id} already initialized")
+            return None
+        
+        # Create user document with defaults
+        user_data = {
+            "username": username,
+            "email": email,
+            "region_id": region_id,
+            # "district_id": None,  # TODO: Add when implementing districts
+            "created_at": datetime.utcnow(),
+            "points": 0,
+            "profile": {
+                "display_name": username,  # TODO: Customize display name from request
+                "avatar_url": None
+            },
+            "badges": [],
+            "rewards": []
+        }
+        
+        db.collection('users').document(user_id).set(user_data)
+        logger.info(f"User profile initialized: {user_id}")
+        return user_data
+    except Exception as e:
+        logger.error(f"Error initializing user profile: {str(e)}")
+        return None
+
+
+def flatten_dict(d, parent_key='', sep='.'):
+    """Flatten a nested dictionary into dot-path format."""
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
+def update_user_profile(user_id, update_fields):
+    """Update user profile fields.
+    
+    Accepts either flat dot-path keys (e.g., 'profile.display_name') 
+    or nested objects (e.g., {'profile': {'display_name': 'John'}})
+    """
+    try:
+        allowed_fields = ['region_id', 'profile.display_name', 'profile.avatar_url']
+        
+        # Flatten nested objects into dot-paths
+        flattened = flatten_dict(update_fields)
+        
+        # Filter to only allowed fields
+        filtered_updates = {}
+        for field, value in flattened.items():
+            if field in allowed_fields:
+                filtered_updates[field] = value
+        
+        if not filtered_updates:
+            logger.warning(f"No valid fields to update for user {user_id}")
+            return False
+        
+        db.collection('users').document(user_id).update(filtered_updates)
+        logger.info(f"User profile updated: {user_id} - {list(filtered_updates.keys())}")
+        return True
+    except Exception as e:
+        logger.error(f"Error updating user profile: {str(e)}")
+        return False
+
+
+def get_all_regions():
+    """Fetch all regions from Firestore."""
+    try:
+        docs = db.collection('regions').stream()
+        
+        regions = []
+        for doc in docs:
+            data = doc.to_dict()
+            regions.append({
+                "id": doc.id,
+                "name": data.get('name', ''),
+                "code": data.get('code', '')
+            })
+        
+        logger.info(f"Retrieved {len(regions)} regions from Firestore")
+        return regions
+    except Exception as e:
+        logger.error(f"Error fetching regions: {str(e)}")
+        return []
+
+
+def get_all_districts():
+    """Fetch all districts from Firestore."""
+    try:
+        docs = db.collection('districts').stream()
+        
+        districts = []
+        for doc in docs:
+            data = doc.to_dict()
+            districts.append({
+                "id": doc.id,
+                "name": data.get('name', ''),
+                "region_id": data.get('region_id', '')
+            })
+        
+        logger.info(f"Retrieved {len(districts)} districts from Firestore")
+        return districts
+    except Exception as e:
+        logger.error(f"Error fetching districts: {str(e)}")
+        return []
+
+# ===== API ENDPOINTS =====
 '''
 VERIFY USER RECYCLING SUBMISSION
 '''
@@ -176,51 +502,89 @@ def verify_activity():
         if not all([latitude, longitude, image_file]):
             return jsonify({"error": "Missing required fields or file"}), 400
 
-        # get model response
-        prediction, gps_match, transaction_id, distance_metres, cv_confidence_score, \
-            points_earned, bonus_applied, new_total_balance, district, \
-                district_rank = get_model_response(user_id, latitude, longitude, image_file)
+        # Get CV model response
+        cv_result = get_model_response(user_id, image_file)
+        
+        # Find nearest bin
+        all_bins = get_all_bins()
+        nearest_bin = None
+        min_distance = float('inf')
+        
+        for bin_info in all_bins:
+            dist = haversine_distance(latitude, longitude, bin_info['lat'], bin_info['lng'])
+            if dist < min_distance:
+                min_distance = dist
+                nearest_bin = bin_info
+        
+        # Location check: within 50 meters of a bin
+        location_check_passed = min_distance <= 50 if nearest_bin else False
+        
+        # Award points
+        points_earned = 50 if (cv_result['is_recyclable'] and location_check_passed) else 0
+        
+        # Get user region
+        user_region_id = get_user_region(user_id)
+        
+        # Save transaction to Firestore
+        transaction_id = save_transaction(
+            user_id=user_id,
+            region_id=user_region_id,
+            gps_location=(latitude, longitude),
+            nearest_bin_id=nearest_bin['id'] if nearest_bin else None,
+            cv_result=cv_result,
+            location_check_passed=location_check_passed,
+            points_awarded=points_earned
+        )
+        
+        # Get updated user stats
+        username, total_points, level, total_submissions, last_recycled = get_user_db_stats(user_id)
+        
+        # Get user rank
+        user_rank = get_user_rank(user_id)
 
-        # respond based on model response
-        if prediction and gps_match:
+        # Respond based on verification results
+        if cv_result['is_recyclable'] and location_check_passed:
             response_data = {
                 "status": "success",
                 "transaction_id": transaction_id,
                 "user_id": user_id,
                 "verification_details": {
-                    "gps_match": gps_match,
-                    "distance_metres": distance_metres,
-                    "cv_confidence_score": cv_confidence_score,
-                    "prediction": prediction
+                    "gps_match": location_check_passed,
+                    "distance_metres": min_distance,
+                    "cv_confidence_score": cv_result['confidence'],
+                    "detected_items": cv_result['detected_items']
                 },
                 "rewards": {
                     "points_earned": points_earned,
-                    "bonus_applied": bonus_applied,
-                    "new_total_balance": new_total_balance
+                    "bonus_applied": "",
+                    "new_total_balance": total_points
                 },
                 "community_impact": {
-                    "district": district,
-                    "district_rank": district_rank
+                    "district": user_region_id,
+                    "district_rank": user_rank
                 },
-                "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "message": "Recycling submission verified successfully"
             }
         else:
             response_data = {
-            "status": "fail",
-            "transaction_id": transaction_id,
-            "user_id": user_id,
-            "verification_details": {
-                "gps_match": gps_match,
-                "distance_metres": distance_metres,
-                "cv_confidence_score": cv_confidence_score,
-                "prediction": prediction
-            },
-            "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+                "status": "fail",
+                "transaction_id": transaction_id,
+                "user_id": user_id,
+                "verification_details": {
+                    "gps_match": location_check_passed,
+                    "distance_metres": min_distance,
+                    "cv_confidence_score": cv_result['confidence'],
+                    "detected_items": cv_result['detected_items']
+                },
+                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "message": "Not recyclable or too far from bin" if location_check_passed else "Location too far from recycling bin"
             }
 
         return jsonify(response_data), 200
 
     except Exception as e:
+        logger.error(f"Error in verify_activity: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -287,12 +651,12 @@ def get_leaderboard():
         scope = request.args.get('Scope', 'global').lower() # Default scope global
         limit = request.args.get('Limit', default=10, type=int)
 
-        user_district = get_user_district(user_id)
+        user_region_id = get_user_region(user_id)
         user_rank = get_user_rank(user_id)
         all_users = get_all_users()
         
         if scope == "local":
-            filtered_list = [u for u in all_users if u['district'] == user_district]
+            filtered_list = [u for u in all_users if u['region_id'] == user_region_id]
         else:
             filtered_list = all_users
 
@@ -345,6 +709,24 @@ def get_user_stats():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+
+'''
+GET ALL USER TRANSACTIONS
+'''
+@app.route('/api/v1/users/transactions', methods=['GET'])
+@require_auth
+def get_user_transactions():
+    try:
+        # get authenticated user
+        user_id = g.user['uid']
+        
+        transactions = get_all_user_transactions(user_id) # transactions should be a JSON file
+
+        return transactions, 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 '''
@@ -362,7 +744,7 @@ def test_auth():
                 "email": g.user.get('email'),
                 "email_verified": g.user.get('email_verified', False)
             },
-            "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+            "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
         }
         logger.info(f"User id: {g.user.get('uid')}")
         return jsonify(user_info), 200
@@ -380,16 +762,143 @@ def test_model():
         if not image_file:
             return jsonify({"error": "Missing image file"}), 400
         
-        prediction, gps_match, transaction_id, distance_metres, cv_confidence_score, \
-            points_earned, bonus_applied, new_total_balance, district, \
-                district_rank = get_model_response("test-user", 1.3015, 103.8378, image_file)
+        cv_result = get_model_response("test-user", image_file)
         
-        logger.info(f"prediction: {prediction}")
+        logger.info(f"Detected items: {cv_result['detected_items']}, Is recyclable: {cv_result['is_recyclable']}")
         return jsonify({
-            "prediction": prediction
+            "status": "success" if cv_result['is_recyclable'] else "fail",
+            "detected_items": cv_result['detected_items'],
+            "is_recyclable": cv_result['is_recyclable']
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+'''
+GET REGIONS
+'''
+@app.route('/api/v1/regions', methods=['GET'])
+def get_regions():
+    """Fetch all available regions for user selection."""
+    try:
+        regions = get_all_regions()
+        
+        response_data = {
+            "status": "success",
+            "data": regions
+        }
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        logger.error(f"Error fetching regions: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+'''
+GET DISTRICTS
+'''
+@app.route('/api/v1/districts', methods=['GET'])
+def get_districts():
+    """Fetch all available districts for user selection."""
+    try:
+        districts = get_all_districts()
+        
+        response_data = {
+            "status": "success",
+            "data": districts
+        }
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        logger.error(f"Error fetching districts: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+'''
+INITIALIZE USER PROFILE
+'''
+@app.route('/api/v1/users/init', methods=['POST'])
+@require_auth
+def init_user():
+    """
+    Initialize user profile after successful signup.
+    Called once after Firebase Auth creates the user account.
+    
+    Required fields in request body:
+    - username: User's username (for display)
+    - region_id: Selected region ID (default: "central")
+    """
+    try:
+        user_id = g.user['uid']
+        email = g.user.get('email', '')
+        
+        # Parse request body
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Request body required"}), 400
+        
+        username = data.get('username', '')
+        region_id = data.get('region_id', 'central')  # Default to 'central'
+        
+        if not username:
+            return jsonify({"status": "error", "message": "Username is required"}), 400
+        
+        # Initialize user profile
+        user_data = init_user_profile(user_id, username, email, region_id)
+        
+        if user_data is None:
+            return jsonify({"status": "error", "message": "User already initialized or initialization failed"}), 400
+        
+        response_data = {
+            "status": "success",
+            "message": "User profile initialized",
+            "user_id": user_id,
+            "data": user_data
+        }
+        return jsonify(response_data), 201
+    
+    except Exception as e:
+        logger.error(f"Error initializing user: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+'''
+UPDATE USER PROFILE
+'''
+@app.route('/api/v1/users/profile', methods=['PUT'])
+@require_auth
+def update_profile():
+    """
+    Update user profile information.
+    
+    Supported fields in request body:
+    - region_id: Update user's region
+    - profile.display_name: Update display name
+    - profile.avatar_url: Update avatar URL
+    """
+    try:
+        user_id = g.user['uid']
+        
+        # Parse request body
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Request body required"}), 400
+        
+        # Update profile
+        success = update_user_profile(user_id, data)
+        
+        if not success:
+            return jsonify({"status": "error", "message": "No valid fields to update"}), 400
+        
+        response_data = {
+            "status": "success",
+            "message": "User profile updated"
+        }
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        logger.error(f"Error updating user profile: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=8000)
