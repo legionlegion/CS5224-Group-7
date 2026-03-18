@@ -13,5 +13,13 @@ venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-python API_endpoints.py
+python main.py
+```
+
+## Mac faced issue: LZMA support
+If you run into an error regarding LZMA, do the following:
+```
+brew install xz
+pyenv uninstall 3.12.0
+pyenv install 3.12.0
 ```

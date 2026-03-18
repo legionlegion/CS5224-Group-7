@@ -78,7 +78,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 # Helper function to call ML server
 def get_model_response(user_id, latitude, longitude, image_file):
     # default values
-    detected_items = []
+    prediction = False
     gps_match = False
     transaction_id = ""
     distance_metres = 0.0
@@ -98,13 +98,12 @@ def get_model_response(user_id, latitude, longitude, image_file):
         response.raise_for_status()
         ml_result = response.json()
         if isinstance(ml_result, bool):
-            model_verified = ml_result
+            prediction = ml_result
         else:
             logger.warning(f"Unexpected ML response format: {ml_result}")
     except Exception as e:
         logger.error(f"ML server call failed: {e}")
 
-    detected_items = ["ModelVerified"] if model_verified else []
     gps_match = model_verified
     transaction_id = "cdcc2ef"
     distance_metres = 2.4
@@ -115,7 +114,7 @@ def get_model_response(user_id, latitude, longitude, image_file):
     district = "Tampines"
     district_rank = 4
 
-    result = [detected_items, gps_match, transaction_id, distance_metres, cv_confidence_score,
+    result = [prediction, gps_match, transaction_id, distance_metres, cv_confidence_score,
               points_earned, bonus_applied, new_total_balance, district, district_rank]
     return result
 
@@ -157,29 +156,6 @@ def get_user_db_stats(userId):
 
 
 '''
-TEST ENDPOINT - CALLS get_model_response
-'''
-@app.route('/api/v1/test-model', methods=['POST'])
-def test_model():
-    try:
-        image_file = request.files.get('Image')
-        if not image_file:
-            return jsonify({"error": "Missing image file"}), 400
-        
-        detected_items, gps_match, transaction_id, distance_metres, cv_confidence_score, \
-            points_earned, bonus_applied, new_total_balance, district, \
-                district_rank = get_model_response("test-user", 1.3015, 103.8378, image_file)
-        
-        return jsonify({
-            "status": "success" if gps_match else "fail",
-            "detected_items": detected_items,
-            "gps_match": gps_match
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-'''
 VERIFY USER RECYCLING SUBMISSION
 '''
 @app.route('/api/v1/verify-activity', methods=['POST'])
@@ -201,12 +177,12 @@ def verify_activity():
             return jsonify({"error": "Missing required fields or file"}), 400
 
         # get model response
-        detected_items, gps_match, transaction_id, distance_metres, cv_confidence_score, \
+        prediction, gps_match, transaction_id, distance_metres, cv_confidence_score, \
             points_earned, bonus_applied, new_total_balance, district, \
                 district_rank = get_model_response(user_id, latitude, longitude, image_file)
 
         # respond based on model response
-        if detected_items and gps_match:
+        if prediction and gps_match:
             response_data = {
                 "status": "success",
                 "transaction_id": transaction_id,
@@ -215,7 +191,7 @@ def verify_activity():
                     "gps_match": gps_match,
                     "distance_metres": distance_metres,
                     "cv_confidence_score": cv_confidence_score,
-                    "detected_items": detected_items
+                    "prediction": prediction
                 },
                 "rewards": {
                     "points_earned": points_earned,
@@ -237,7 +213,7 @@ def verify_activity():
                 "gps_match": gps_match,
                 "distance_metres": distance_metres,
                 "cv_confidence_score": cv_confidence_score,
-                "detected_items": detected_items
+                "prediction": prediction
             },
             "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
             }
@@ -393,6 +369,27 @@ def test_auth():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+'''
+TEST ENDPOINT - CALLS get_model_response
+'''
+@app.route('/api/v1/test-model', methods=['POST'])
+def test_model():
+    try:
+        image_file = request.files.get('Image')
+        if not image_file:
+            return jsonify({"error": "Missing image file"}), 400
+        
+        prediction, gps_match, transaction_id, distance_metres, cv_confidence_score, \
+            points_earned, bonus_applied, new_total_balance, district, \
+                district_rank = get_model_response("test-user", 1.3015, 103.8378, image_file)
+        
+        logger.info(f"prediction: {prediction}")
+        return jsonify({
+            "prediction": prediction
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=8000)
