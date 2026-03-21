@@ -1,0 +1,10 @@
+# Firebase emulator runtime artifacts
+.firebase/
+firebase-export-*/
+firestore-debug.log
+ui-debug.log
+storage-debug.log
+database-debug.log
+
+# Seed data is committed intentionally — remove this line if you want to gitignore it too
+# seed/
