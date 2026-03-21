@@ -43,6 +43,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<boolean>;
   completeProfile: (username: string) => Promise<void>;
+  updateUsername: (username: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -221,6 +222,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const createdProfile = await getProfile(authUser.uid);
         setProfile(createdProfile);
+      },
+      updateUsername: async (username) => {
+        const normalizedUserId = normalizeUsername(username);
+        if (!normalizedUserId) {
+          throw new Error("Username cannot be empty.");
+        }
+
+        if (profile && normalizedUserId === profile.userId) {
+          return;
+        }
+
+        if (isDevSession) {
+          setProfile((currentProfile) =>
+            currentProfile
+              ? {
+                  ...currentProfile,
+                  userId: normalizedUserId,
+                  displayName: normalizedUserId
+                }
+              : currentProfile
+          );
+          return;
+        }
+
+        if (!authUser || !db || !profile) {
+          throw new Error("Profile is not ready. Please try again.");
+        }
+
+        const oldUserId = normalizeUsername(profile.userId);
+        const profileRef = doc(db, "profiles", authUser.uid);
+        const newUsernameRef = doc(db, "usernames", normalizedUserId);
+        const oldUsernameRef = doc(db, "usernames", oldUserId);
+
+        await runTransaction(db, async (transaction) => {
+          const newUsernameSnapshot = await transaction.get(newUsernameRef);
+          const ownerUid = newUsernameSnapshot.data()?.firebaseUid;
+
+          if (newUsernameSnapshot.exists() && ownerUid !== authUser.uid) {
+            throw new Error("Username is already taken.");
+          }
+
+          transaction.set(newUsernameRef, {
+            firebaseUid: authUser.uid,
+            createdAt: serverTimestamp()
+          });
+          transaction.set(
+            profileRef,
+            {
+              userId: normalizedUserId,
+              displayName: normalizedUserId
+            },
+            { merge: true }
+          );
+
+          if (oldUserId !== normalizedUserId) {
+            transaction.delete(oldUsernameRef);
+          }
+        });
+
+        const updatedProfile = await getProfile(authUser.uid);
+        setProfile(updatedProfile);
       },
       logout: async () => {
         if (typeof window !== "undefined") {

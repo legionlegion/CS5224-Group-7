@@ -3,36 +3,42 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { RewardSummaryCard } from "@/components/rewards/RewardSummaryCard";
+import { SubmissionHistoryList } from "@/components/profile/SubmissionHistoryList";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { VerifyActivityResult } from "@/lib/types";
-
-const rewardSessionKey = "ecobin-go:latest-reward";
+import { getSuccessfulLogs } from "@/lib/recyclingHistory";
+import { SubmissionHistoryItem } from "@/lib/types";
 
 export default function RewardsPage() {
-  const [result, setResult] = useState<VerifyActivityResult | null>(null);
+  const [logs, setLogs] = useState<SubmissionHistoryItem[]>([]);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem(rewardSessionKey);
-    if (stored) {
-      setResult(JSON.parse(stored) as VerifyActivityResult);
-    }
+    setLogs(getSuccessfulLogs());
   }, []);
+
+  const totalPoints = logs.reduce((sum, item) => sum + item.pointsEarned, 0);
 
   return (
     <AuthGuard>
       <section className="space-y-4">
         <div className="rounded-[2rem] bg-white/80 p-4 shadow-card">
           <p className="text-sm uppercase tracking-[0.2em] text-moss/70">Rewards</p>
-          <h2 className="text-2xl font-semibold">Your latest result</h2>
+          <h2 className="text-2xl font-semibold">Your successful recycling logs</h2>
+          <p className="mt-2 text-sm text-ink/70">
+            Placeholder summary from your successful submissions in this browser.
+          </p>
         </div>
 
-        {result ? (
-          <RewardSummaryCard result={result} />
+        <div className="grid grid-cols-2 gap-3 rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-card">
+          <SummaryStat label="Total Points Earned" value={String(totalPoints)} />
+          <SummaryStat label="Successful Logs" value={String(logs.length)} />
+        </div>
+
+        {logs.length ? (
+          <SubmissionHistoryList items={logs} />
         ) : (
           <ErrorState
-            title="No reward result"
-            message="Log a recycling activity first to see your reward summary."
+            title="No successful logs yet"
+            message="Complete a successful verification on the Log tab to populate this placeholder."
             action={
               <Link
                 href="/log"
@@ -45,5 +51,14 @@ export default function RewardsPage() {
         )}
       </section>
     </AuthGuard>
+  );
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-canvas p-3">
+      <p className="text-xs uppercase tracking-[0.15em] text-moss/70">{label}</p>
+      <p className="mt-1 text-lg font-semibold">{value}</p>
+    </div>
   );
 }
