@@ -120,4 +120,43 @@ export async function testAuth(): Promise<{
   return request("/api/v1/test-auth");
 }
 
+export async function testModel(): Promise<VerifyActivityResult> {
+  const response = await fetch('/test.jpg');
+  const blob = await response.blob();
+  const imageFile = new File([blob], 'test.jpg', { type: 'image/jpeg' });
+  
+  const formData = new FormData();
+  formData.append("Image", imageFile);
+  formData.append("Latitude", "1.3015");
+  formData.append("Longitude", "103.8378");
+  
+  return request<VerifyActivityResult>("/api/v1/test-model", {
+    method: "POST",
+    body: formData
+  });
+}
+
+
+
+
+interface InitUserProfileResponse {
+  status: string;
+  message: string;
+  user_id: string;
+  data: Record<string, unknown>;
+}
+
+export async function initUserProfile(username: string): Promise<void> {
+  if (USE_MOCK_API) {
+    // Mock implementation - user already created in Firestore by AuthContext
+    return;
+  }
+
+  await request<InitUserProfileResponse>("/api/v1/users/init", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username })
+  });
+}
+
 export { USE_MOCK_API };

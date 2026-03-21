@@ -6,7 +6,7 @@ import { ProfileStatsCard } from "@/components/profile/ProfileStatsCard";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { useAuth } from "@/context/AuthContext";
-import { getUserStats } from "@/lib/api";
+import { getUserStats, testModel } from "@/lib/api";
 import { UserStats } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -31,6 +31,7 @@ export default function ProfilePage() {
 
       try {
         const data = await getUserStats();
+        console.log(testModel())
         setStats(data);
       } catch (statsError) {
         setError(statsError instanceof Error ? statsError.message : "Unable to load profile.");
