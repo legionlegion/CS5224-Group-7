@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getNearbyBins } from "@/lib/api";
@@ -124,11 +124,42 @@ export default function MapPage() {
   const [nearbyBins, setNearbyBins] = useState<NearbyBin[]>([]);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState("");
+  const [locationError, setLocationError] = useState("");
+  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [requestingLocation, setRequestingLocation] = useState(false);
   const [mapLoadProgress, setMapLoadProgress] = useState(0);
   const [mapLoadLabel, setMapLoadLabel] = useState("Loading recycling bins...");
 
+  const loadLocation = useCallback(async (surfaceError: boolean) => {
+    if (surfaceError) {
+      setLocationError("");
+    }
+    setRequestingLocation(true);
+
+    try {
+      const coords = await getCurrentPosition();
+      setLocation(coords);
+      setLocationPermissionDenied(false);
+      const nearby = await getNearbyBins(coords.lat, coords.lng, 500);
+      setNearbyBins(nearby);
+    } catch (locationIssue) {
+      const message =
+        locationIssue instanceof Error ? locationIssue.message : "Unable to retrieve location.";
+      if (/denied|permission/i.test(message)) {
+        setLocationPermissionDenied(true);
+      }
+      if (surfaceError) {
+        setLocationError(message);
+      }
+    } finally {
+      setRequestingLocation(false);
+    }
+  }, []);
+
   useEffect(() => {
     const startedAt = Date.now();
+    let permissionStatus: PermissionStatus | null = null;
+
     const loadMapData = async () => {
       try {
         setMapLoadProgress(5);
@@ -190,20 +221,34 @@ export default function MapPage() {
       }
     };
 
-    const loadLocation = async () => {
+    const watchLocationPermission = async () => {
+      if (!navigator.permissions?.query) {
+        return;
+      }
+
       try {
-        const coords = await getCurrentPosition();
-        setLocation(coords);
-        const nearby = await getNearbyBins(coords.lat, coords.lng, 500);
-        setNearbyBins(nearby);
+        permissionStatus = await navigator.permissions.query({ name: "geolocation" });
+        const syncPermission = () => {
+          setLocationPermissionDenied(permissionStatus?.state === "denied");
+        };
+
+        syncPermission();
+        permissionStatus.onchange = syncPermission;
       } catch {
         return;
       }
     };
 
     loadMapData();
-    loadLocation();
-  }, []);
+    void watchLocationPermission();
+    void loadLocation(false);
+
+    return () => {
+      if (permissionStatus) {
+        permissionStatus.onchange = null;
+      }
+    };
+  }, [loadLocation]);
 
   useEffect(() => {
     if (geoJson || error) {
@@ -246,12 +291,30 @@ export default function MapPage() {
           </p>
           {location && geoJson ? (
             <p className="mt-2 text-xs text-ink/60">
-              Showing {visibleBins.length} bins within 500m of your location. Green circle indicates 100m radius. Red dot is your location.
+              Showing {visibleBins.length} bins within 500m of your location. <br></br>
+              Green circle indicates 100m radius. <br></br>
+              Red dot is your location.
             </p>
           ) : null}
         </div>
 
         {error ? <ErrorState message={error} /> : null}
+        {locationError ? <ErrorState title="Location unavailable" message={locationError} /> : null}
+        {locationPermissionDenied ? (
+          <div className="rounded-[2rem] border border-white/60 bg-white/80 p-4 shadow-card">
+            <p className="text-sm text-ink/80">
+              Location access is currently blocked. Enable it to highlight bins around you.
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadLocation(true)}
+              disabled={requestingLocation}
+              className="mt-3 rounded-full bg-moss px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {requestingLocation ? "Requesting location..." : "Grant Location Access"}
+            </button>
+          </div>
+        ) : null}
 
         {!geoJson ? (
           <div className="rounded-[2rem] border border-white/60 bg-white/80 p-5 shadow-card">
