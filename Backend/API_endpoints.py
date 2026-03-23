@@ -98,11 +98,14 @@ def get_model_response(user_id, image_file):
     except Exception as e:
         logger.error(f"ML server call failed: {e}")
     
-    is_recyclable = len(detected_items) > 0
+    is_recyclable = any(item != "Bluebins" for item in detected_items)
+
+    bin_detected = True if "Bluebins" in detected_items else False
 
     return {
         "detected_items": detected_items,
         "is_recyclable": is_recyclable,
+        "bin_detected": bin_detected,
     }
 
 # ===== FIRESTORE DATABASE FUNCTIONS =====
@@ -520,7 +523,7 @@ def verify_activity():
         location_check_passed = min_distance <= 50 if nearest_bin else False
         
         # Award points
-        points_earned = 50 if (cv_result['is_recyclable'] and location_check_passed) else 0
+        points_earned = 50 if (cv_result['bin_detected'] and cv_result['is_recyclable'] and location_check_passed) else 0
         
         # Get user region
         user_region_id = get_user_region(user_id)
@@ -543,7 +546,7 @@ def verify_activity():
         user_rank = get_user_rank(user_id)
 
         # Respond based on verification results
-        if cv_result['is_recyclable'] and location_check_passed:
+        if cv_result['bin_detected'] and cv_result['is_recyclable'] and location_check_passed:
             response_data = {
                 "status": "success",
                 "transaction_id": transaction_id,
@@ -566,19 +569,20 @@ def verify_activity():
                 "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
                 "message": "Recycling submission verified successfully"
             }
+        elif not location_check_passed:
+            response_data = {
+                "status": "fail",
+                "message": "Location too far from recycling bin"
+            }
+        elif not cv_result['bin_detected']:
+            response_data = {
+                "status": "fail",
+                "message": "Image does not contain recycling bin"
+            }
         else:
             response_data = {
                 "status": "fail",
-                "transaction_id": transaction_id,
-                "user_id": user_id,
-                "verification_details": {
-                    "gps_match": location_check_passed,
-                    "distance_metres": min_distance,
-                    "cv_confidence_score": cv_result['confidence'],
-                    "detected_items": cv_result['detected_items']
-                },
-                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "message": "Not recyclable or too far from bin" if location_check_passed else "Location too far from recycling bin"
+                "message": "No recyclable items detected"
             }
 
         return jsonify(response_data), 200
@@ -629,7 +633,8 @@ def get_nearby_bins():
             response_data = {
                 "status": "fail",
                 "count": 0,
-                "data": []
+                "data": [],
+                "message": "No nearby bins found"
             }
             return jsonify(response_data), 200
 
