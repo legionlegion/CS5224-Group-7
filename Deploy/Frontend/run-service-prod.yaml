@@ -5,7 +5,7 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccountName: frontend-run-prod@cs5224-grp7.iam.gserviceaccount.com
+      serviceAccountName: frontend-run-prod@cs5224-grp7-3bb27.iam.gserviceaccount.com
       containers:
         - image: frontend-image
           env:

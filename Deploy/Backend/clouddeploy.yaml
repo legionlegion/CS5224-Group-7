@@ -23,12 +23,12 @@ metadata:
   name: backend-dev
 description: Backend dev target
 run:
-  location: projects/cs5224-grp7/locations/us-west2
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
 executionConfigs:
   - usages: ["RENDER", "DEPLOY"]
     defaultPool:
-      serviceAccount: cloud-deploy-executor@cs5224-grp7.iam.gserviceaccount.com
-      artifactStorage: gs://cs5224-grp7-clouddeploy
+      serviceAccount: cloud-deploy-executor@cs5224-grp7-3bb27.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-3bb27-clouddeploy
 
 ---
 apiVersion: deploy.cloud.google.com/v1
@@ -38,12 +38,12 @@ metadata:
 description: Backend uat target
 requireApproval: true
 run:
-  location: projects/cs5224-grp7/locations/us-west2
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
 executionConfigs:
   - usages: ["RENDER", "DEPLOY"]
     defaultPool:
-      serviceAccount: cloud-deploy-executor@cs5224-grp7.iam.gserviceaccount.com
-      artifactStorage: gs://cs5224-grp7-clouddeploy
+      serviceAccount: cloud-deploy-executor@cs5224-grp7-3bb27.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-3bb27-clouddeploy
 
 ---
 apiVersion: deploy.cloud.google.com/v1
@@ -53,9 +53,9 @@ metadata:
 description: Backend prod target
 requireApproval: true
 run:
-  location: projects/cs5224-grp7/locations/us-west2
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
 executionConfigs:
   - usages: ["RENDER", "DEPLOY"]
     defaultPool:
-      serviceAccount: cloud-deploy-executor@cs5224-grp7.iam.gserviceaccount.com
-      artifactStorage: gs://cs5224-grp7-clouddeploy
+      serviceAccount: cloud-deploy-executor@cs5224-grp7-3bb27.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-3bb27-clouddeploy

@@ -5,11 +5,11 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccountName: backend-run-dev@cs5224-grp7.iam.gserviceaccount.com
+      serviceAccountName: backend-run-dev@cs5224-grp7-3bb27.iam.gserviceaccount.com
       containers:
         - image: backend-image
           env:
             - name: PORT
               value: "8080"
             - name: GOOGLE_CLOUD_PROJECT
-              value: "cs5224-grp7"
+              value: "cs5224-grp7-new"
