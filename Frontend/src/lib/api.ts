@@ -14,7 +14,7 @@ import {
 import { auth } from "@/lib/firebase";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "false";
+const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);

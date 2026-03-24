@@ -14,14 +14,14 @@ spec:
             - name: NEXT_PUBLIC_USE_MOCK_API
               value: "false"
             - name: NEXT_PUBLIC_FIREBASE_API_KEY
-              value: "REPLACE_ME"
+              value: "AIzaSyAM95gmG6aIkX9YPlkks-0i7lx49wnjvH8"
             - name: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-              value: "REPLACE_ME"
+              value: "cs5224-grp7-3bb27.firebaseapp.com"
             - name: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-              value: "REPLACE_ME"
+              value: "cs5224-grp7-3bb27"
             - name: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-              value: "REPLACE_ME"
+              value: "cs5224-grp7-3bb27.firebasestorage.app"
             - name: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-              value: "REPLACE_ME"
+              value: "306363185631"
             - name: NEXT_PUBLIC_FIREBASE_APP_ID
-              value: "REPLACE_ME"
+              value: "1:306363185631:web:d9cdd06f7fdb535416ec6a"
