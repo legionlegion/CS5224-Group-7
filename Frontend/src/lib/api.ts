@@ -2,12 +2,15 @@ import {
   LeaderboardEntry,
   LeaderboardScope,
   NearbyBin,
+  Region,
+  SubmissionHistoryItem,
   UserStats,
   VerifyActivityResult
 } from "@/lib/types";
 import {
   mockLeaderboard,
   mockNearbyBins,
+  mockSubmissionHistory,
   mockUserStats,
   mockVerifyActivity
 } from "@/lib/mockApi";
@@ -136,6 +139,35 @@ export async function testModel(): Promise<VerifyActivityResult> {
   });
 }
 
+  export async function getUserTransactions(): Promise<SubmissionHistoryItem[]> {
+    if (USE_MOCK_API) {
+      return mockSubmissionHistory();
+    }
+
+    const response = await request<{ status: string; data: SubmissionHistoryItem[] }>(
+      "/api/v1/users/transactions"
+    );
+
+    return response.data;
+  }
+
+  interface UpdateUserProfilePayload {
+    username?: string;
+    region_id?: string;
+  }
+
+  export async function updateUserProfile(payload: UpdateUserProfilePayload): Promise<void> {
+    if (USE_MOCK_API) {
+      return;
+    }
+
+    await request<{ status: string; message: string }>("/api/v1/users/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  }
+
 
 
 
@@ -146,16 +178,37 @@ interface InitUserProfileResponse {
   data: Record<string, unknown>;
 }
 
-export async function initUserProfile(username: string): Promise<void> {
+export async function getRegions(): Promise<Region[]> {
+  if (USE_MOCK_API) {
+    // Mock regions
+    return [
+      { id: "central", name: "Central", code: "CT" },
+      { id: "north", name: "North", code: "N" },
+      { id: "south", name: "South", code: "S" },
+      { id: "east", name: "East", code: "E" },
+      { id: "west", name: "West", code: "W" }
+    ];
+  }
+
+  const response = await request<{ status: string; data: Region[] }>("/api/v1/regions");
+  return response.data;
+}
+
+export async function initUserProfile(username: string, regionId?: string): Promise<void> {
   if (USE_MOCK_API) {
     // Mock implementation - user already created in Firestore by AuthContext
     return;
   }
 
+  const body: { username: string; region_id?: string } = { username };
+  if (regionId) {
+    body.region_id = regionId;
+  }
+
   await request<InitUserProfileResponse>("/api/v1/users/init", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username })
+    body: JSON.stringify(body)
   });
 }
 

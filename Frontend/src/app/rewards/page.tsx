@@ -5,17 +5,42 @@ import { useEffect, useState } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { SubmissionHistoryList } from "@/components/profile/SubmissionHistoryList";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { getSuccessfulLogs } from "@/lib/recyclingHistory";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { getUserStats, getUserTransactions } from "@/lib/api";
 import { SubmissionHistoryItem } from "@/lib/types";
 
 export default function RewardsPage() {
   const [logs, setLogs] = useState<SubmissionHistoryItem[]>([]);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    setLogs(getSuccessfulLogs());
-  }, []);
+    const loadRewardsData = async () => {
+      setLoading(true);
+      setError("");
 
-  const totalPoints = logs.reduce((sum, item) => sum + item.pointsEarned, 0);
+      try {
+        const [stats, transactions] = await Promise.all([
+          getUserStats(),
+          getUserTransactions()
+        ]);
+
+        // Rewards page is explicitly successful logs only.
+        const successfulLogs = transactions.filter((item) => item.pointsEarned > 0);
+        setLogs(successfulLogs);
+        setTotalPoints(stats.totalPoints);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error ? loadError.message : "Unable to load rewards data."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRewardsData();
+  }, []);
 
   return (
     <AuthGuard>
@@ -24,21 +49,28 @@ export default function RewardsPage() {
           <p className="text-sm uppercase tracking-[0.2em] text-moss/70">Rewards</p>
           <h2 className="text-2xl font-semibold">Your successful recycling logs</h2>
           <p className="mt-2 text-sm text-ink/70">
-            Placeholder summary from your successful submissions in this browser.
+            Summary based on your account transactions and current points balance.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-card">
-          <SummaryStat label="Total Points Earned" value={String(totalPoints)} />
-          <SummaryStat label="Successful Logs" value={String(logs.length)} />
-        </div>
+        {loading ? <LoadingState label="Loading rewards..." /> : null}
+        {error ? <ErrorState title="Unable to load rewards" message={error} /> : null}
 
-        {logs.length ? (
+        {!loading && !error ? (
+          <div className="grid grid-cols-2 gap-3 rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-card">
+            <SummaryStat label="Total Points" value={String(totalPoints)} />
+            <SummaryStat label="Successful Logs" value={String(logs.length)} />
+          </div>
+        ) : null}
+
+        {!loading && !error && logs.length ? (
           <SubmissionHistoryList items={logs} />
-        ) : (
+        ) : null}
+
+        {!loading && !error && !logs.length ? (
           <ErrorState
             title="No successful logs yet"
-            message="Complete a successful verification on the Log tab to populate this placeholder."
+            message="Complete a successful verification on the Log tab to start earning points."
             action={
               <Link
                 href="/log"
@@ -48,7 +80,7 @@ export default function RewardsPage() {
               </Link>
             }
           />
-        )}
+        ) : null}
       </section>
     </AuthGuard>
   );

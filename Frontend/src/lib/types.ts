@@ -87,11 +87,17 @@ export interface UserStats {
   totalPoints: number;
   stats: {
     totalSubmissions: number;
-    lastRecycled: string;
+    lastRecycled: string | null;
   };
 }
 
 export interface LocationCoordinates {
   lat: number;
   lng: number;
+}
+
+export interface Region {
+  id: string;
+  name: string;
+  code: string;
 }

@@ -235,9 +235,8 @@ def get_all_user_transactions(userId):
             # Determine status based on is_counted and cv_result.is_recyclable
             is_counted = txn_data.get('is_counted', False)
             cv_result = txn_data.get('cv_result', {})
-            is_recyclable = cv_result.get('is_recyclable', False)
             
-            if is_counted and is_recyclable:
+            if is_counted and txn_data.get('points_awarded', 0) > 0:
                 status = "approved"
             else:
                 status = "rejected"
@@ -343,8 +342,8 @@ def save_transaction(user_id, region_id, gps_location, nearest_bin_id, cv_result
             "nearest_bin_id": nearest_bin_id,
             "cv_result": cv_result,
             "location_check_passed": location_check_passed,
-            "is_counted": cv_result.get('is_recyclable', False) and location_check_passed,
-            "points_awarded": points_awarded if (cv_result.get('is_recyclable', False) and location_check_passed) else 0,
+            "is_counted": points_awarded > 0,
+            "points_awarded": points_awarded,
             "image_path": image_path
         }
         
@@ -376,6 +375,12 @@ def init_user_profile(user_id, username, email, region_id):
             logger.warning(f"User {user_id} already initialized")
             return None
         
+        # Check if username is already taken
+        username_exists = db.collection('users').where('username', '==', username).limit(1).stream()
+        if any(username_exists):
+            logger.warning(f"Username '{username}' is already taken")
+            raise ValueError(f"Username '{username}' is already taken")
+        
         # Create user document with defaults
         user_data = {
             "username": username,
@@ -384,10 +389,6 @@ def init_user_profile(user_id, username, email, region_id):
             # "district_id": None,  # TODO: Add when implementing districts
             "created_at": datetime.utcnow(),
             "points": 0,
-            "profile": {
-                "display_name": username,  # TODO: Customize display name from request
-                "avatar_url": None
-            },
             "badges": [],
             "rewards": []
         }
@@ -415,11 +416,15 @@ def flatten_dict(d, parent_key='', sep='.'):
 def update_user_profile(user_id, update_fields):
     """Update user profile fields.
     
-    Accepts either flat dot-path keys (e.g., 'profile.display_name') 
-    or nested objects (e.g., {'profile': {'display_name': 'John'}})
+    Accepts flat keys (e.g., 'region_id')
+    or nested objects (e.g., {'region_id': 'north'}).
+
+    Returns:
+    - (True, None) on success
+    - (False, <error_message>) on failure
     """
     try:
-        allowed_fields = ['region_id', 'profile.display_name', 'profile.avatar_url']
+        allowed_fields = ['region_id', 'username']
         
         # Flatten nested objects into dot-paths
         flattened = flatten_dict(update_fields)
@@ -429,17 +434,33 @@ def update_user_profile(user_id, update_fields):
         for field, value in flattened.items():
             if field in allowed_fields:
                 filtered_updates[field] = value
+
+        # Normalize and validate username updates
+        if 'username' in filtered_updates:
+            normalized_username = str(filtered_updates['username']).strip().lower()
+
+            if not normalized_username:
+                logger.warning(f"Invalid empty username update for user {user_id}")
+                return False, "Username cannot be empty"
+
+            username_exists = db.collection('users').where('username', '==', normalized_username).limit(1).stream()
+            for existing_doc in username_exists:
+                if existing_doc.id != user_id:
+                    logger.warning(f"Username '{normalized_username}' is already taken")
+                    return False, "Username is already taken"
+
+            filtered_updates['username'] = normalized_username
         
         if not filtered_updates:
             logger.warning(f"No valid fields to update for user {user_id}")
-            return False
+            return False, "No valid fields to update"
         
         db.collection('users').document(user_id).update(filtered_updates)
         logger.info(f"User profile updated: {user_id} - {list(filtered_updates.keys())}")
-        return True
+        return True, None
     except Exception as e:
         logger.error(f"Error updating user profile: {str(e)}")
-        return False
+        return False, "Unable to update profile"
 
 
 def get_all_regions():
@@ -876,9 +897,8 @@ def update_profile():
     Update user profile information.
     
     Supported fields in request body:
+    - username: Update user's username (must be unique)
     - region_id: Update user's region
-    - profile.display_name: Update display name
-    - profile.avatar_url: Update avatar URL
     """
     try:
         user_id = g.user['uid']
@@ -889,10 +909,10 @@ def update_profile():
             return jsonify({"status": "error", "message": "Request body required"}), 400
         
         # Update profile
-        success = update_user_profile(user_id, data)
+        success, error_message = update_user_profile(user_id, data)
         
         if not success:
-            return jsonify({"status": "error", "message": "No valid fields to update"}), 400
+            return jsonify({"status": "error", "message": error_message or "No valid fields to update"}), 400
         
         response_data = {
             "status": "success",

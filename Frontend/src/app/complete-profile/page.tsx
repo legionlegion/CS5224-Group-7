@@ -1,17 +1,40 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useAuth } from "@/context/AuthContext";
+import { getRegions } from "@/lib/api";
+import { Region } from "@/lib/types";
 
 export default function CompleteProfilePage() {
   const { completeProfile, authUser } = useAuth();
   const router = useRouter();
   const [username, setUsername] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("");
+  const [regions, setRegions] = useState<Region[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingRegions, setLoadingRegions] = useState(true);
+
+  useEffect(() => {
+    const loadRegions = async () => {
+      try {
+        const fetchedRegions = await getRegions();
+        setRegions(fetchedRegions);
+      } catch (err) {
+        console.error("Failed to load regions:", err);
+        setError(
+          err instanceof Error ? err.message : "Unable to load regions."
+        );
+      } finally {
+        setLoadingRegions(false);
+      }
+    };
+
+    loadRegions();
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -19,7 +42,7 @@ export default function CompleteProfilePage() {
     setError("");
 
     try {
-      await completeProfile(username);
+      await completeProfile(username, selectedRegion || undefined);
       router.replace("/map");
     } catch (submitError) {
       setError(
@@ -51,6 +74,26 @@ export default function CompleteProfilePage() {
                 className="w-full rounded-2xl border border-ink/10 bg-canvas px-4 py-3"
               />
             </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium">Select your region</span>
+              <select
+                value={selectedRegion}
+                onChange={(event) => setSelectedRegion(event.target.value)}
+                disabled={loadingRegions}
+                className="w-full rounded-2xl border border-ink/10 bg-canvas px-4 py-3"
+              >
+                <option value="">
+                  {loadingRegions ? "Loading regions..." : "Choose a region (optional)"}
+                </option>
+                {regions.map((region) => (
+                  <option key={region.id} value={region.id}>
+                    {region.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <button
               type="submit"
               disabled={loading}
