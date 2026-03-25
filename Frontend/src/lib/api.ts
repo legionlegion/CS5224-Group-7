@@ -3,17 +3,18 @@ import {
   LeaderboardScope,
   NearbyBin,
   UserStats,
-  VerifyActivityResult
+  VerifyActivityResult,
 } from "@/lib/types";
 import {
   mockLeaderboard,
   mockNearbyBins,
   mockUserStats,
-  mockVerifyActivity
+  mockVerifyActivity,
 } from "@/lib/mockApi";
 import { auth } from "@/lib/firebase";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "false";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -23,7 +24,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (auth?.currentUser) {
     try {
       const idToken = await auth.currentUser.getIdToken();
-      console.log("Id token: " + idToken)
+      console.log("Id token: " + idToken);
       headers.set("Authorization", `Bearer ${idToken}`);
     } catch (error) {
       console.error("Failed to get Firebase ID token:", error);
@@ -33,7 +34,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
-    cache: "no-store"
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -55,7 +56,7 @@ export async function getNearbyBins(
   const params = new URLSearchParams({
     lat: String(lat),
     lng: String(lng),
-    radius: String(radius)
+    radius: String(radius),
   });
 
   const response = await request<{
@@ -63,18 +64,20 @@ export async function getNearbyBins(
     count: number;
     data: NearbyBin[];
   }>(`/api/v1/nearby-bins?${params.toString()}`);
-  
+
   return response.data;
 }
 
-export async function verifyActivity(formData: FormData): Promise<VerifyActivityResult> {
+export async function verifyActivity(
+  formData: FormData
+): Promise<VerifyActivityResult> {
   if (USE_MOCK_API) {
     return mockVerifyActivity();
   }
 
   return request<VerifyActivityResult>("/api/v1/verify-activity", {
     method: "POST",
-    body: formData
+    body: formData,
   });
 }
 
@@ -88,7 +91,7 @@ export async function getLeaderboard(
 
   const params = new URLSearchParams({
     Scope: scope,
-    Limit: String(limit)
+    Limit: String(limit),
   });
 
   const response = await request<{
@@ -96,7 +99,7 @@ export async function getLeaderboard(
     user_current_rank: number;
     leaderboard: LeaderboardEntry[];
   }>(`/api/v1/leaderboard?${params.toString()}`);
-  
+
   return response.leaderboard;
 }
 
@@ -121,23 +124,20 @@ export async function testAuth(): Promise<{
 }
 
 export async function testModel(): Promise<VerifyActivityResult> {
-  const response = await fetch('/test.jpg');
+  const response = await fetch("/test.jpg");
   const blob = await response.blob();
-  const imageFile = new File([blob], 'test.jpg', { type: 'image/jpeg' });
-  
+  const imageFile = new File([blob], "test.jpg", { type: "image/jpeg" });
+
   const formData = new FormData();
   formData.append("Image", imageFile);
   formData.append("Latitude", "1.3015");
   formData.append("Longitude", "103.8378");
-  
+
   return request<VerifyActivityResult>("/api/v1/test-model", {
     method: "POST",
-    body: formData
+    body: formData,
   });
 }
-
-
-
 
 interface InitUserProfileResponse {
   status: string;
@@ -155,7 +155,7 @@ export async function initUserProfile(username: string): Promise<void> {
   await request<InitUserProfileResponse>("/api/v1/users/init", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username })
+    body: JSON.stringify({ username }),
   });
 }
 

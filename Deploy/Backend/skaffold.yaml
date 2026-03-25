@@ -1,0 +1,19 @@
+apiVersion: skaffold/v4beta7
+kind: Config
+metadata:
+  name: backend-config
+profiles:
+  - name: dev
+    manifests:
+      rawYaml:
+        - run-service-dev.yaml
+  - name: uat
+    manifests:
+      rawYaml:
+        - run-service-uat.yaml
+  - name: prod
+    manifests:
+      rawYaml:
+        - run-service-prod.yaml
+deploy:
+  cloudrun: {}
