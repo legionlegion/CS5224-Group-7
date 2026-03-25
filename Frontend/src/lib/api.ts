@@ -235,7 +235,7 @@ export async function getRegions(): Promise<Region[]> {
     return [
       { id: "central", name: "Central", code: "CT" },
       { id: "north", name: "North", code: "N" },
-      { id: "south", name: "South", code: "S" },
+      { id: "north-east", name: "North-East", code: "NE" },
       { id: "east", name: "East", code: "E" },
       { id: "west", name: "West", code: "W" }
     ];

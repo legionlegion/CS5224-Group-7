@@ -636,17 +636,23 @@ def verify_activity():
         # Get user rank within region
         user_rank = get_user_region_rank(user_id, user_region_id)
 
+        distance_metres = min_distance if nearest_bin else None
+        base_response = {
+            "transaction_id": transaction_id,
+            "user_id": user_id,
+            "verification_details": {
+                "gps_match": location_check_passed,
+                "distance_metres": distance_metres,
+                "detected_items": cv_result.get('detected_items', [])
+            },
+            "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        }
+
         # Respond based on verification results
         if cv_result['bin_detected'] and cv_result['is_recyclable'] and location_check_passed:
             response_data = {
                 "status": "success",
-                "transaction_id": transaction_id,
-                "user_id": user_id,
-                "verification_details": {
-                    "gps_match": location_check_passed,
-                    "distance_metres": min_distance,
-                    "detected_items": cv_result['detected_items']
-                },
+                **base_response,
                 "rewards": {
                     "points_earned": points_earned,
                     "bonus_applied": "",
@@ -656,22 +662,24 @@ def verify_activity():
                     "district": user_region_id,
                     "district_rank": user_rank
                 },
-                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
                 "message": "Recycling submission verified successfully"
             }
         elif not location_check_passed:
             response_data = {
                 "status": "fail",
+                **base_response,
                 "message": "Location too far from recycling bin"
             }
         elif not cv_result['bin_detected']:
             response_data = {
                 "status": "fail",
+                **base_response,
                 "message": "Image does not contain recycling bin"
             }
         else:
             response_data = {
                 "status": "fail",
+                **base_response,
                 "message": "No recyclable items detected"
             }
 
@@ -768,12 +776,19 @@ def get_leaderboard():
             user_rank = None
 
         leaderboard_data = []
-        for index, user in enumerate(sorted_users[:limit]):
-            display_rank = 1 + sum(1 for u in sorted_users if u['points'] > user['points'])
+        current_rank = 0
+        last_points = None
+
+        for position, user in enumerate(sorted_users[:limit], start=1):
+            points = user['points']
+            if last_points is None or points < last_points:
+                current_rank = position
+                last_points = points
+
             leaderboard_data.append({
-                "rank": display_rank,
+                "rank": current_rank,
                 "username": user['username'],
-                "points": user['points']
+                "points": points
             })
 
         response = {

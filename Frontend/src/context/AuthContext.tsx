@@ -149,6 +149,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error("Firebase is not configured.");
         }
 
+        const normalizedUsername = normalizeUsername(username);
+
         const credential = await createUserWithEmailAndPassword(auth, email, password);
         
         try {
@@ -162,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
 
           // Initialize user profile in backend (users collection with uniqueness check)
-          await initUserProfile(username, regionId);
+          await initUserProfile(normalizedUsername, regionId);
 
           const createdProfile = await getProfile(credential.user.uid);
           setProfile(createdProfile);
@@ -203,6 +205,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error("User is not signed in.");
         }
 
+        const normalizedUsername = normalizeUsername(username);
+
         // Create profile document in Firestore
         await createProfile({
           uid: authUser.uid,
@@ -213,7 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         // Initialize user profile in backend (users collection with uniqueness check)
-        await initUserProfile(username, regionId);
+        await initUserProfile(normalizedUsername, regionId);
 
         const createdProfile = await getProfile(authUser.uid);
         setProfile(createdProfile);
