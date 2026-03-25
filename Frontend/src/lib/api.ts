@@ -1,6 +1,6 @@
 import {
   LeaderboardEntry,
-  LeaderboardScope,
+  LeaderboardRegionId,
   NearbyBin,
   Region,
   SubmissionHistoryItem,
@@ -17,7 +17,7 @@ import {
 import { auth } from "@/lib/firebase";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "false";
+const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API?.toLowerCase() === "true";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
@@ -82,25 +82,76 @@ export async function verifyActivity(formData: FormData): Promise<VerifyActivity
 }
 
 export async function getLeaderboard(
-  scope: LeaderboardScope,
+  region: LeaderboardRegionId,
   limit = 10
 ): Promise<LeaderboardEntry[]> {
   if (USE_MOCK_API) {
-    return mockLeaderboard(scope, limit);
+    return mockLeaderboard(region, limit);
   }
 
   const params = new URLSearchParams({
-    Scope: scope,
+    Region: region,
     Limit: String(limit)
   });
 
   const response = await request<{
-    scope: string;
-    user_current_rank: number;
+    region: string;
+    user_current_rank: number | null;
     leaderboard: LeaderboardEntry[];
   }>(`/api/v1/leaderboard?${params.toString()}`);
   
   return response.leaderboard;
+}
+
+const validLeaderboardRegions = new Set<LeaderboardRegionId>([
+  "all",
+  "central",
+  "east",
+  "west",
+  "north",
+  "north-east"
+]);
+
+export async function getUserRegion(): Promise<LeaderboardRegionId> {
+  if (USE_MOCK_API) {
+    return "central";
+  }
+
+  const response = await request<{
+    status: string;
+    region_id: string | null;
+  }>("/api/v1/users/region");
+
+  const normalized = (response.region_id || "").toLowerCase();
+  return validLeaderboardRegions.has(normalized as LeaderboardRegionId)
+    ? (normalized as LeaderboardRegionId)
+    : "all";
+}
+
+export async function getUserGlobalRank(): Promise<number> {
+  if (USE_MOCK_API) {
+    return 12;
+  }
+
+  const response = await request<{
+    status: string;
+    rank: number;
+  }>("/api/v1/users/rank/global");
+
+  return response.rank;
+}
+
+export async function getUserRegionRank(): Promise<number> {
+  if (USE_MOCK_API) {
+    return 4;
+  }
+
+  const response = await request<{
+    status: string;
+    rank: number;
+  }>("/api/v1/users/rank/region");
+
+  return response.rank;
 }
 
 export async function getUserStats(): Promise<UserStats> {

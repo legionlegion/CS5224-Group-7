@@ -22,6 +22,25 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"])
 
+DEFAULT_BIN_DISTANCE_THRESHOLD_METERS = 50.0
+
+
+def get_bin_distance_threshold_meters():
+    """Read verify-activity distance threshold from env with safe fallback."""
+    raw_value = os.getenv("BIN_DISTANCE_THRESHOLD_METERS", str(DEFAULT_BIN_DISTANCE_THRESHOLD_METERS))
+    try:
+        threshold = float(raw_value)
+        if threshold < 0:
+            raise ValueError("Distance threshold must be non-negative")
+        return threshold
+    except (TypeError, ValueError):
+        logger.warning(
+            "Invalid BIN_DISTANCE_THRESHOLD_METERS='%s'. Falling back to %.1f",
+            raw_value,
+            DEFAULT_BIN_DISTANCE_THRESHOLD_METERS,
+        )
+        return DEFAULT_BIN_DISTANCE_THRESHOLD_METERS
+
 if not firebase_admin._apps:
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "serviceAccountKey.json"
     
@@ -160,7 +179,8 @@ def get_user_region(user_id):
         user_doc = db.collection('users').document(user_id).get()
         
         if user_doc.exists:
-            return user_doc.get('region_id', None)
+            user_data = user_doc.to_dict() or {}
+            return user_data.get('region_id')
         else:
             logger.warning(f"User {user_id} not found in Firestore")
             return None
@@ -192,8 +212,8 @@ def get_all_users():
         return []
 
 
-def get_user_rank(user_id):
-    """Calculate user's global rank based on points."""
+def get_user_region_rank(user_id, region_id=None):
+    """Calculate user's rank within region based on points."""
     try:
         user_doc = db.collection('users').document(user_id).get()
         
@@ -201,15 +221,52 @@ def get_user_rank(user_id):
             logger.warning(f"User {user_id} not found")
             return -1
         
-        user_points = user_doc.get('points', 0)
+        user_data = user_doc.to_dict() or {}
+        user_points = user_data.get('points', 0)
+        user_region_id = region_id or user_data.get('region_id')
+
+        if not user_region_id:
+            logger.warning(f"User {user_id} does not have a region_id")
+            return -1
         
-        # Count users with more points
-        higher_points = db.collection('users').where('points', '>', user_points).count().get()[0].value
+        # Avoid index-dependent aggregation/order queries by calculating rank in Python.
+        same_region_users = db.collection('users').where('region_id', '==', user_region_id).stream()
+        higher_points = 0
+        for region_user in same_region_users:
+            region_user_data = region_user.to_dict() or {}
+            if region_user_data.get('points', 0) > user_points:
+                higher_points += 1
+
         rank = higher_points + 1
         
         return rank
     except Exception as e:
-        logger.error(f"Error calculating user rank: {str(e)}")
+        logger.error(f"Error calculating user region rank: {str(e)}")
+        return -1
+
+
+def get_user_global_rank(user_id):
+    """Calculate user's global rank based on points without index-dependent queries."""
+    try:
+        user_doc = db.collection('users').document(user_id).get()
+
+        if not user_doc.exists:
+            logger.warning(f"User {user_id} not found")
+            return -1
+
+        user_data = user_doc.to_dict() or {}
+        user_points = user_data.get('points', 0)
+
+        all_users = db.collection('users').stream()
+        higher_points = 0
+        for other_user in all_users:
+            other_user_data = other_user.to_dict() or {}
+            if other_user_data.get('points', 0) > user_points:
+                higher_points += 1
+
+        return higher_points + 1
+    except Exception as e:
+        logger.error(f"Error calculating user global rank: {str(e)}")
         return -1
 
 # TO EDIT WHEN INTEGRATING WITH DATABASE
@@ -225,7 +282,7 @@ def get_all_user_transactions(userId):
     - detectedItems: cv_result.detected_items array
     '''
     try:
-        transactions_from_db = db.collection('transactions').where('user_id', '==', userId).order_by('submitted_at', direction=firestore.Query.DESCENDING).stream()
+        transactions_from_db = db.collection('transactions').where('user_id', '==', userId).stream()
         
         transactions_list = []
         
@@ -234,7 +291,7 @@ def get_all_user_transactions(userId):
             
             # Determine status based on is_counted and cv_result.is_recyclable
             is_counted = txn_data.get('is_counted', False)
-            cv_result = txn_data.get('cv_result', {})
+            cv_result = txn_data.get('cv_result') or {}
             
             if is_counted and txn_data.get('points_awarded', 0) > 0:
                 status = "approved"
@@ -264,12 +321,14 @@ def get_all_user_transactions(userId):
             }
             
             transactions_list.append(submission_item)
+
+        transactions_list.sort(key=lambda x: x.get('datetime') or '', reverse=True)
         
         # Return as JSON response
         return jsonify({
             'status': 'success',
             'data': transactions_list
-        })
+        }), 200
     
     except Exception as e:
         logger.error(f"Error fetching user transactions for {userId}: {str(e)}")
@@ -304,22 +363,32 @@ def get_user_db_stats(user_id):
         
         # Count total submissions (transactions where is_counted=true)
         count_result = db.collection('transactions').where('user_id', '==', user_id).where('is_counted', '==', True).count().get()
-        total_submissions = count_result[0].value
+        total_submissions = 0
+        if count_result:
+            first_result = count_result[0]
+            if isinstance(first_result, list):
+                first_result = first_result[0] if first_result else None
+            if first_result is not None:
+                total_submissions = getattr(first_result, 'value', 0)
         
         # Get last recycled timestamp
-        last_txn = db.collection('transactions').where('user_id', '==', user_id).order_by('submitted_at', direction=firestore.Query.DESCENDING).limit(1).stream()
+        last_txn = db.collection('transactions').where('user_id', '==', user_id).stream()
+        latest_submitted_at = None
         last_recycled = None
         for txn in last_txn:
             submitted_at = txn.get('submitted_at')
-            if submitted_at is not None:
-                # Ensure submitted_at is JSON-serializable (e.g., convert datetime/Firestore Timestamp to ISO string)
-                if hasattr(submitted_at, "isoformat"):
-                    last_recycled = submitted_at.isoformat()
-                elif hasattr(submitted_at, "to_datetime"):
-                    last_recycled = submitted_at.to_datetime().isoformat()
-                else:
-                    last_recycled = str(submitted_at)
-            break
+            if submitted_at is None:
+                continue
+
+            comparable = submitted_at.to_datetime() if hasattr(submitted_at, 'to_datetime') else submitted_at
+            if latest_submitted_at is None or comparable > latest_submitted_at:
+                latest_submitted_at = comparable
+
+        if latest_submitted_at is not None:
+            if hasattr(latest_submitted_at, 'isoformat'):
+                last_recycled = latest_submitted_at.isoformat()
+            else:
+                last_recycled = str(latest_submitted_at)
         
         logger.info(f"User {user_id} stats: {username}, {total_points} points, {total_submissions} submissions")
         return username, total_points, level, total_submissions, last_recycled
@@ -540,8 +609,9 @@ def verify_activity():
                 min_distance = dist
                 nearest_bin = bin_info
         
-        # Location check: within 50 meters of a bin
-        location_check_passed = min_distance <= 50 if nearest_bin else False
+        # Location check: within configured threshold distance from a bin
+        distance_threshold_meters = get_bin_distance_threshold_meters()
+        location_check_passed = min_distance <= distance_threshold_meters if nearest_bin else False
         
         # Award points
         points_earned = 50 if (cv_result['bin_detected'] and cv_result['is_recyclable'] and location_check_passed) else 0
@@ -563,8 +633,8 @@ def verify_activity():
         # Get updated user stats
         username, total_points, level, total_submissions, last_recycled = get_user_db_stats(user_id)
         
-        # Get user rank
-        user_rank = get_user_rank(user_id)
+        # Get user rank within region
+        user_rank = get_user_region_rank(user_id, user_region_id)
 
         # Respond based on verification results
         if cv_result['bin_detected'] and cv_result['is_recyclable'] and location_check_passed:
@@ -575,7 +645,6 @@ def verify_activity():
                 "verification_details": {
                     "gps_match": location_check_passed,
                     "distance_metres": min_distance,
-                    "cv_confidence_score": cv_result['confidence'],
                     "detected_items": cv_result['detected_items']
                 },
                 "rewards": {
@@ -674,30 +743,42 @@ def get_leaderboard():
         user_id = g.user['uid']
         
         # parameters
-        scope = request.args.get('Scope', 'global').lower() # Default scope global
+        region = request.args.get('Region', '', type=str).strip().lower()
         limit = request.args.get('Limit', default=10, type=int)
 
         user_region_id = get_user_region(user_id)
-        user_rank = get_user_rank(user_id)
+        if not region:
+            region = user_region_id or 'all'
+
         all_users = get_all_users()
         
-        if scope == "local":
-            filtered_list = [u for u in all_users if u['region_id'] == user_region_id]
-        else:
+        if region == "all":
             filtered_list = all_users
+        else:
+            filtered_list = [u for u in all_users if (u.get('region_id') or '').lower() == region]
 
         sorted_users = sorted(filtered_list, key=lambda x: x['points'], reverse=True)
 
+        normalized_user_region = (user_region_id or '').lower()
+        if region == 'all':
+            user_rank = get_user_global_rank(user_id)
+        elif normalized_user_region and region == normalized_user_region:
+            user_rank = get_user_region_rank(user_id, user_region_id)
+        else:
+            user_rank = None
+
         leaderboard_data = []
         for index, user in enumerate(sorted_users[:limit]):
+            display_rank = 1 + sum(1 for u in sorted_users if u['points'] > user['points'])
             leaderboard_data.append({
-                "rank": index + 1,
+                "rank": display_rank,
                 "username": user['username'],
                 "points": user['points']
             })
 
         response = {
-            "scope": scope,
+            "region": region,
+            "user_region": user_region_id,
             "user_current_rank": user_rank, 
             "leaderboard": leaderboard_data
         }
@@ -705,6 +786,62 @@ def get_leaderboard():
         return jsonify(response), 200
 
     except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/v1/users/region', methods=['GET'])
+@require_auth
+def get_user_region_info():
+    """Fetch authenticated user's region id."""
+    try:
+        user_id = g.user['uid']
+        region_id = get_user_region(user_id)
+
+        return jsonify({
+            "status": "success",
+            "user_id": user_id,
+            "region_id": region_id
+        }), 200
+    except Exception as e:
+        logger.error(f"Error fetching user region info: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/v1/users/rank/global', methods=['GET'])
+@require_auth
+def get_user_global_rank_info():
+    """Fetch authenticated user's global rank."""
+    try:
+        user_id = g.user['uid']
+        rank = get_user_global_rank(user_id)
+
+        return jsonify({
+            "status": "success",
+            "user_id": user_id,
+            "rank": rank
+        }), 200
+    except Exception as e:
+        logger.error(f"Error fetching user global rank info: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/v1/users/rank/region', methods=['GET'])
+@require_auth
+def get_user_region_rank_info():
+    """Fetch authenticated user's rank in region."""
+    try:
+        user_id = g.user['uid']
+        region_id = get_user_region(user_id)
+        rank = get_user_region_rank(user_id, region_id)
+
+        return jsonify({
+            "status": "success",
+            "user_id": user_id,
+            "region_id": region_id,
+            "rank": rank
+        }), 200
+    except Exception as e:
+        logger.error(f"Error fetching user region rank info: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -749,7 +886,7 @@ def get_user_transactions():
         
         transactions = get_all_user_transactions(user_id) # transactions should be a JSON file
 
-        return transactions, 200
+        return transactions
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

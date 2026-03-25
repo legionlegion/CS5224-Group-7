@@ -1,6 +1,6 @@
 import {
   LeaderboardEntry,
-  LeaderboardScope,
+  LeaderboardRegionId,
   NearbyBin,
   SubmissionHistoryItem,
   UserStats,
@@ -77,7 +77,6 @@ export async function mockVerifyActivity(): Promise<VerifyActivityResult> {
     verification_details: {
       gps_match: status === "success",
       distance_metres: status === "success" ? 2.4 : 35.6,
-      cv_confidence_score: status === "success" ? 0.91 : 0.38,
       detected_items: status === "success" ? ["plastic bottle", "metal can"] : []
     },
     rewards:
@@ -104,7 +103,7 @@ export async function mockVerifyActivity(): Promise<VerifyActivityResult> {
 }
 
 export async function mockLeaderboard(
-  scope: LeaderboardScope = "global",
+  region: LeaderboardRegionId = "all",
   limit = 10
 ): Promise<LeaderboardEntry[]> {
   await mockDelay();

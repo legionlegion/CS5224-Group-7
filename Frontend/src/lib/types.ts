@@ -48,7 +48,6 @@ export interface VerifyActivityResult {
   verification_details: {
     gps_match: boolean;
     distance_metres: number;
-    cv_confidence_score: number;
     detected_items: string[];
   };
   rewards?: {
@@ -70,7 +69,13 @@ export interface LeaderboardEntry {
   points: number;
 }
 
-export type LeaderboardScope = "global" | "local";
+export type LeaderboardRegionId =
+  | "all"
+  | "central"
+  | "east"
+  | "west"
+  | "north"
+  | "north-east";
 
 export interface SubmissionHistoryItem {
   id: string;
