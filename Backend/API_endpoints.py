@@ -15,14 +15,19 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+# Global variables
+DEFAULT_BIN_DISTANCE_THRESHOLD_METERS = 50.0
+PREDICT_API_ENDPOINT = "http://127.0.0.1:5001/predict"
+ML_BIN_CLASS = "Bluebins"
+LEVELS = {"Platinum": 1000, "Gold": 500, "Silver": 200, "Bronze": 0}
+RECYCLING_POINTS = 50
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"])
-
-DEFAULT_BIN_DISTANCE_THRESHOLD_METERS = 50.0
 
 
 def get_bin_distance_threshold_meters():
@@ -103,7 +108,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 def get_model_response(user_id, image_file):
 
     # Call FastAPI ML server that returns a list of recyclable items
-    ml_predict_url = os.getenv("ML_PREDICT_URL", "http://127.0.0.1:5001/predict")
+    ml_predict_url = os.getenv("ML_PREDICT_URL", PREDICT_API_ENDPOINT)
     detected_items = []
     try:
         files = {"file": image_file.stream}
@@ -117,9 +122,9 @@ def get_model_response(user_id, image_file):
     except Exception as e:
         logger.error(f"ML server call failed: {e}")
     
-    is_recyclable = any(item != "Bluebins" for item in detected_items)
+    is_recyclable = any(item != ML_BIN_CLASS for item in detected_items)
 
-    bin_detected = True if "Bluebins" in detected_items else False
+    bin_detected = True if ML_BIN_CLASS in detected_items else False
 
     return {
         "detected_items": detected_items,
@@ -352,11 +357,11 @@ def get_user_db_stats(user_id):
         total_points = user_data.get('points', 0)
         
         # Determine level based on points (customizable)
-        if total_points >= 1000:
+        if total_points >= LEVELS["Platinum"]:
             level = "Platinum"
-        elif total_points >= 500:
+        elif total_points >= LEVELS["Gold"]:
             level = "Gold"
-        elif total_points >= 200:
+        elif total_points >= LEVELS["Silver"]:
             level = "Silver"
         else:
             level = "Bronze"
@@ -614,7 +619,7 @@ def verify_activity():
         location_check_passed = min_distance <= distance_threshold_meters if nearest_bin else False
         
         # Award points
-        points_earned = 50 if (cv_result['bin_detected'] and cv_result['is_recyclable'] and location_check_passed) else 0
+        points_earned = RECYCLING_POINTS if (cv_result['bin_detected'] and cv_result['is_recyclable'] and location_check_passed) else 0
         
         # Get user region
         user_region_id = get_user_region(user_id)
