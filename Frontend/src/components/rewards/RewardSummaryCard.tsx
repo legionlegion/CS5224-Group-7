@@ -19,8 +19,6 @@ function getBadge(points: number) {
 export function RewardSummaryCard({ result }: { result: VerifyActivityResult }) {
   const newBalance = result.rewards?.new_total_balance ?? 0;
   const pointsEarned = result.rewards?.points_earned ?? 0;
-  const bonusApplied = result.rewards?.bonus_applied ?? "None";
-  const districtRank = result.community_impact?.district_rank ?? -1;
   const detectedItems = result.verification_details?.detected_items ?? [];
   const badge = getBadge(newBalance);
   const statusLabel = result.status === "success" ? "Approved" : "Rejected";
@@ -45,8 +43,6 @@ export function RewardSummaryCard({ result }: { result: VerifyActivityResult }) 
       <div className="mt-5 grid grid-cols-2 gap-3">
         <Stat label="Points Earned" value={String(pointsEarned)} />
         <Stat label="New Balance" value={String(newBalance)} />
-        <Stat label="Bonus" value={bonusApplied} />
-        <Stat label="District Rank" value={districtRank > 0 ? `#${districtRank}` : "N/A"} />
       </div>
       <div className="mt-5">
         <p className="text-sm font-semibold">Detected Items</p>

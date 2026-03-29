@@ -2,7 +2,7 @@
 
 ```bash
 # Create virtual environment
-python3 -m venv venv
+python3.12 -m venv venv
 
 # Activate virtual environment
 # macOS/Linux:
@@ -15,6 +15,8 @@ pip install -r requirements.txt
 
 python main.py
 ```
+
+Use a stable Python 3.12 interpreter for this service. The current dependency stack can fail on Python 3.13 with `pydantic_core` import errors.
 
 ## Mac faced issue: LZMA support
 If you run into an error regarding LZMA, do the following:
