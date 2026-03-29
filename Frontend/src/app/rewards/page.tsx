@@ -6,16 +6,27 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { SubmissionHistoryList } from "@/components/profile/SubmissionHistoryList";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { useAuth } from "@/context/AuthContext";
 import { getUserStats, getUserTransactions } from "@/lib/api";
 import { SubmissionHistoryItem } from "@/lib/types";
 
 export default function RewardsPage() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [logs, setLogs] = useState<SubmissionHistoryItem[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     const loadRewardsData = async () => {
       setLoading(true);
       setError("");
@@ -39,8 +50,8 @@ export default function RewardsPage() {
       }
     };
 
-    loadRewardsData();
-  }, []);
+    void loadRewardsData();
+  }, [authLoading, isAuthenticated]);
 
   return (
     <AuthGuard>
