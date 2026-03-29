@@ -20,13 +20,22 @@ steps:
     args:
       - "build"
       - "-t"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_IMAGE_NAME}:$COMMIT_SHA"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${COMMIT_SHA}"
+      - "--build-arg=NEXT_PUBLIC_API_BASE_URL=https://recycling-backend-dev-306363185631.us-west2.run.app"
+      - "--build-arg=NEXT_PUBLIC_USE_MOCK_API=false"
+      - "--build-arg=NEXT_PUBLIC_FIREBASE_API_KEY=${_NEXT_PUBLIC_FIREBASE_API_KEY}"
+      - "--build-arg=NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}"
+      - "--build-arg=NEXT_PUBLIC_FIREBASE_PROJECT_ID=${_NEXT_PUBLIC_FIREBASE_PROJECT_ID}"
+      - "--build-arg=NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}"
+      - "--build-arg=NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}"
+      - "--build-arg=NEXT_PUBLIC_FIREBASE_APP_ID=${_NEXT_PUBLIC_FIREBASE_APP_ID}"
+      - "--build-arg=NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=${_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}"
       - "."
 
   - name: "gcr.io/cloud-builders/docker"
     args:
       - "push"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_IMAGE_NAME}:$COMMIT_SHA"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${COMMIT_SHA}"
 
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     entrypoint: "bash"
@@ -38,4 +47,4 @@ steps:
           --delivery-pipeline="frontend-pipeline" \
           --skaffold-file="Deploy/Frontend/skaffold.yaml" \
           --source="." \
-          --images="frontend-image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_IMAGE_NAME}:$COMMIT_SHA"
+          --images="frontend-image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${COMMIT_SHA}"
