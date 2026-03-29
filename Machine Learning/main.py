@@ -13,7 +13,6 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image
 from ultralytics import YOLO
 
-import os
 import uvicorn
 
 MODEL_PATH = Path("./best.pt")
@@ -23,11 +22,10 @@ app = FastAPI(title="YOLO Prediction API")
 model = YOLO(str(MODEL_PATH))
 
 ALLOWED_CLASSES = {
-    "blue bins",
-    "metal can",
-    "newspaper",
-    "plastic bag",
-    "plastic bottle",
+    "Bluebins",
+    "Metal",
+    "Paper",
+    "Plastic",
 }
 
 CLASS_NAME_MAP = {
@@ -50,7 +48,7 @@ async def predict(file: UploadFile = File(...)):
         image = Image.open(BytesIO(payload)).convert("RGB")
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid image file.") from exc
-    results = model.predict(source=image, conf=0.25, verbose=False)
+    results = model.predict(source=image, conf=conf, verbose=False)
     res = results[0]
 
     predictions = []
@@ -69,8 +67,7 @@ async def predict(file: UploadFile = File(...)):
         if normalized_class_name in ALLOWED_CLASSES:
             detected_classes.add(normalized_class_name)
 
-    # Return list of recyclable items (all detected except Trash)
-    recyclable_items = list(detected_classes - {"Trash"})
+    recyclable_items = sorted(detected_classes)
     return recyclable_items
   
 if __name__ == "__main__":

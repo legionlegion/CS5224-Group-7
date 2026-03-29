@@ -22,6 +22,5 @@ gcloud builds submit . \
   --project=cs5224-grp7-3bb27 \
   --config=Backend/cloudbuild.yaml \
   --region=us-west2 \
-  --ignore-file=".gcloudignore.backend" \
   --substitutions=COMMIT_SHA=manual-$(date +%s),SHORT_SHA=manual$(date +%H%M%S)
 ```
