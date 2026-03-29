@@ -105,15 +105,6 @@ export function BinMap({ bins, nearbyBins = [], userLocation }: BinMapProps) {
           );
         })}
 
-        {nearbyBins.map((bin) => (
-          <Circle
-            key={`circle-${bin.id}`}
-            center={[bin.coordinates.lat, bin.coordinates.lng]}
-            radius={45}
-            pathOptions={{ color: "#bd6f44", fillColor: "#e7c89b", fillOpacity: 0.4 }}
-          />
-        ))}
-
         {userLocation ? (
           <Circle
             center={[userLocation.lat, userLocation.lng]}
