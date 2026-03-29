@@ -1,0 +1,61 @@
+apiVersion: deploy.cloud.google.com/v1
+kind: DeliveryPipeline
+metadata:
+  name: backend-pipeline
+description: Backend pipeline
+serialPipeline:
+  stages:
+    - targetId: backend-dev
+      profiles: ["dev"]
+    - targetId: backend-uat
+      profiles: ["uat"]
+      strategy:
+        standard: {}
+    - targetId: backend-prod
+      profiles: ["prod"]
+      strategy:
+        standard: {}
+
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: backend-dev
+description: Backend dev target
+run:
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
+executionConfigs:
+  - usages: ["RENDER", "DEPLOY"]
+    defaultPool:
+      serviceAccount: cloud-deploy-executor@cs5224-grp7-3bb27.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-3bb27-clouddeploy
+
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: backend-uat
+description: Backend uat target
+requireApproval: true
+run:
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
+executionConfigs:
+  - usages: ["RENDER", "DEPLOY"]
+    defaultPool:
+      serviceAccount: cloud-deploy-executor@cs5224-grp7-3bb27.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-3bb27-clouddeploy
+
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: backend-prod
+description: Backend prod target
+requireApproval: true
+run:
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
+executionConfigs:
+  - usages: ["RENDER", "DEPLOY"]
+    defaultPool:
+      serviceAccount: cloud-deploy-executor@cs5224-grp7-3bb27.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-3bb27-clouddeploy

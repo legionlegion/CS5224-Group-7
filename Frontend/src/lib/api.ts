@@ -5,14 +5,14 @@ import {
   Region,
   SubmissionHistoryItem,
   UserStats,
-  VerifyActivityResult
+  VerifyActivityResult,
 } from "@/lib/types";
 import {
   mockLeaderboard,
   mockNearbyBins,
   mockSubmissionHistory,
   mockUserStats,
-  mockVerifyActivity
+  mockVerifyActivity,
 } from "@/lib/mockApi";
 import { auth } from "@/lib/firebase";
 
@@ -26,7 +26,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (auth?.currentUser) {
     try {
       const idToken = await auth.currentUser.getIdToken();
-      console.log("Id token: " + idToken)
+      console.log("Id token: " + idToken);
       headers.set("Authorization", `Bearer ${idToken}`);
     } catch (error) {
       console.error("Failed to get Firebase ID token:", error);
@@ -36,7 +36,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
-    cache: "no-store"
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -58,7 +58,7 @@ export async function getNearbyBins(
   const params = new URLSearchParams({
     lat: String(lat),
     lng: String(lng),
-    radius: String(radius)
+    radius: String(radius),
   });
 
   const response = await request<{
@@ -66,18 +66,20 @@ export async function getNearbyBins(
     count: number;
     data: NearbyBin[];
   }>(`/api/v1/nearby-bins?${params.toString()}`);
-  
+
   return response.data;
 }
 
-export async function verifyActivity(formData: FormData): Promise<VerifyActivityResult> {
+export async function verifyActivity(
+  formData: FormData
+): Promise<VerifyActivityResult> {
   if (USE_MOCK_API) {
     return mockVerifyActivity();
   }
 
   return request<VerifyActivityResult>("/api/v1/verify-activity", {
     method: "POST",
-    body: formData
+    body: formData,
   });
 }
 
@@ -99,7 +101,7 @@ export async function getLeaderboard(
     user_current_rank: number | null;
     leaderboard: LeaderboardEntry[];
   }>(`/api/v1/leaderboard?${params.toString()}`);
-  
+
   return response.leaderboard;
 }
 
@@ -175,52 +177,20 @@ export async function testAuth(): Promise<{
 }
 
 export async function testModel(): Promise<VerifyActivityResult> {
-  const response = await fetch('/test.jpg');
+  const response = await fetch("/test.jpg");
   const blob = await response.blob();
-  const imageFile = new File([blob], 'test.jpg', { type: 'image/jpeg' });
-  
+  const imageFile = new File([blob], "test.jpg", { type: "image/jpeg" });
+
   const formData = new FormData();
   formData.append("Image", imageFile);
   formData.append("Latitude", "1.3015");
   formData.append("Longitude", "103.8378");
-  
+
   return request<VerifyActivityResult>("/api/v1/test-model", {
     method: "POST",
-    body: formData
+    body: formData,
   });
 }
-
-  export async function getUserTransactions(): Promise<SubmissionHistoryItem[]> {
-    if (USE_MOCK_API) {
-      return mockSubmissionHistory();
-    }
-
-    const response = await request<{ status: string; data: SubmissionHistoryItem[] }>(
-      "/api/v1/users/transactions"
-    );
-
-    return response.data;
-  }
-
-  interface UpdateUserProfilePayload {
-    username?: string;
-    region_id?: string;
-  }
-
-  export async function updateUserProfile(payload: UpdateUserProfilePayload): Promise<void> {
-    if (USE_MOCK_API) {
-      return;
-    }
-
-    await request<{ status: string; message: string }>("/api/v1/users/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-  }
-
-
-
 
 interface InitUserProfileResponse {
   status: string;
