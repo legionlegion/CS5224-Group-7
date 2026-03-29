@@ -50,7 +50,6 @@ async def predict(file: UploadFile = File(...)):
     detected_classes = {
         pred["class_name"] for pred in predictions if pred["class_name"] in ALLOWED_CLASSES
     }
-    
     # Return list of recyclable items (all detected except Trash)
     recyclable_items = list(detected_classes - {"Trash"})
     return recyclable_items
