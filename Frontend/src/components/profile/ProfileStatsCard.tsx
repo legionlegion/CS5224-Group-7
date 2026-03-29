@@ -7,6 +7,13 @@ export function ProfileStatsCard({
   profile: UserProfile;
   stats: UserStats;
 }) {
+  const hasValidLastRecycled =
+    typeof stats.stats.lastRecycled === "string" &&
+    !Number.isNaN(Date.parse(stats.stats.lastRecycled));
+  const lastRecycledLabel = hasValidLastRecycled
+    ? new Date(stats.stats.lastRecycled as string).toLocaleDateString()
+    : "N/A";
+
   return (
     <div className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-card">
       <p className="text-sm uppercase tracking-[0.2em] text-moss/70">Profile</p>
@@ -16,10 +23,7 @@ export function ProfileStatsCard({
         <ProfileStat label="Level" value={stats.level} />
         <ProfileStat label="Points" value={String(stats.totalPoints)} />
         <ProfileStat label="Submissions" value={String(stats.stats.totalSubmissions)} />
-        <ProfileStat
-          label="Last Recycled"
-          value={new Date(stats.stats.lastRecycled).toLocaleDateString()}
-        />
+        <ProfileStat label="Last Recycled" value={lastRecycledLabel} />
       </div>
     </div>
   );

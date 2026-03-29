@@ -1,0 +1,23 @@
+apiVersion: deploy.cloud.google.com/v1
+kind: DeliveryPipeline
+metadata:
+  name: ml-pipeline
+description: ML service pipeline
+serialPipeline:
+  stages:
+    - targetId: ml-dev
+      profiles: ["dev"]
+
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: ml-dev
+description: ML service dev target
+run:
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
+executionConfigs:
+  - usages: ["RENDER", "DEPLOY"]
+    defaultPool:
+      serviceAccount: cloud-deploy-executor@cs5224-grp7-3bb27.iam.gserviceaccount.com
+      artifactStorage: gs://cs5224-grp7-3bb27-clouddeploy

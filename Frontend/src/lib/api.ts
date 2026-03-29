@@ -1,21 +1,23 @@
 import {
   LeaderboardEntry,
-  LeaderboardScope,
+  LeaderboardRegionId,
   NearbyBin,
+  Region,
+  SubmissionHistoryItem,
   UserStats,
   VerifyActivityResult,
 } from "@/lib/types";
 import {
   mockLeaderboard,
   mockNearbyBins,
+  mockSubmissionHistory,
   mockUserStats,
   mockVerifyActivity,
 } from "@/lib/mockApi";
 import { auth } from "@/lib/firebase";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "false";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API?.toLowerCase() === "true";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
@@ -82,25 +84,76 @@ export async function verifyActivity(
 }
 
 export async function getLeaderboard(
-  scope: LeaderboardScope,
+  region: LeaderboardRegionId,
   limit = 10
 ): Promise<LeaderboardEntry[]> {
   if (USE_MOCK_API) {
-    return mockLeaderboard(scope, limit);
+    return mockLeaderboard(region, limit);
   }
 
   const params = new URLSearchParams({
-    Scope: scope,
-    Limit: String(limit),
+    Region: region,
+    Limit: String(limit)
   });
 
   const response = await request<{
-    scope: string;
-    user_current_rank: number;
+    region: string;
+    user_current_rank: number | null;
     leaderboard: LeaderboardEntry[];
   }>(`/api/v1/leaderboard?${params.toString()}`);
 
   return response.leaderboard;
+}
+
+const validLeaderboardRegions = new Set<LeaderboardRegionId>([
+  "all",
+  "central",
+  "east",
+  "west",
+  "north",
+  "north-east"
+]);
+
+export async function getUserRegion(): Promise<LeaderboardRegionId> {
+  if (USE_MOCK_API) {
+    return "central";
+  }
+
+  const response = await request<{
+    status: string;
+    region_id: string | null;
+  }>("/api/v1/users/region");
+
+  const normalized = (response.region_id || "").toLowerCase();
+  return validLeaderboardRegions.has(normalized as LeaderboardRegionId)
+    ? (normalized as LeaderboardRegionId)
+    : "all";
+}
+
+export async function getUserGlobalRank(): Promise<number> {
+  if (USE_MOCK_API) {
+    return 12;
+  }
+
+  const response = await request<{
+    status: string;
+    rank: number;
+  }>("/api/v1/users/rank/global");
+
+  return response.rank;
+}
+
+export async function getUserRegionRank(): Promise<number> {
+  if (USE_MOCK_API) {
+    return 4;
+  }
+
+  const response = await request<{
+    status: string;
+    rank: number;
+  }>("/api/v1/users/rank/region");
+
+  return response.rank;
 }
 
 export async function getUserStats(): Promise<UserStats> {
@@ -139,6 +192,38 @@ export async function testModel(): Promise<VerifyActivityResult> {
   });
 }
 
+export async function getUserTransactions(): Promise<SubmissionHistoryItem[]> {
+  if (USE_MOCK_API) {
+    return mockSubmissionHistory();
+  }
+
+  const response = await request<{ status: string; data: SubmissionHistoryItem[] }>(
+    "/api/v1/users/transactions"
+  );
+
+  return response.data;
+}
+
+interface UpdateUserProfilePayload {
+  username?: string;
+  region_id?: string;
+}
+
+export async function updateUserProfile(payload: UpdateUserProfilePayload): Promise<void> {
+  if (USE_MOCK_API) {
+    return;
+  }
+
+  await request<{ status: string; message: string }>("/api/v1/users/profile", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+
+
+
 interface InitUserProfileResponse {
   status: string;
   message: string;
@@ -146,16 +231,37 @@ interface InitUserProfileResponse {
   data: Record<string, unknown>;
 }
 
-export async function initUserProfile(username: string): Promise<void> {
+export async function getRegions(): Promise<Region[]> {
+  if (USE_MOCK_API) {
+    // Mock regions
+    return [
+      { id: "central", name: "Central", code: "CT" },
+      { id: "north", name: "North", code: "N" },
+      { id: "north-east", name: "North-East", code: "NE" },
+      { id: "east", name: "East", code: "E" },
+      { id: "west", name: "West", code: "W" }
+    ];
+  }
+
+  const response = await request<{ status: string; data: Region[] }>("/api/v1/regions");
+  return response.data;
+}
+
+export async function initUserProfile(username: string, regionId?: string): Promise<void> {
   if (USE_MOCK_API) {
     // Mock implementation - user already created in Firestore by AuthContext
     return;
   }
 
+  const body: { username: string; region_id?: string } = { username };
+  if (regionId) {
+    body.region_id = regionId;
+  }
+
   await request<InitUserProfileResponse>("/api/v1/users/init", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username }),
+    body: JSON.stringify(body)
   });
 }
 

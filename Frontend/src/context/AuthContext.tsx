@@ -18,11 +18,10 @@ import {
 import {
   doc,
   getDoc,
-  runTransaction,
-  serverTimestamp
+  runTransaction
 } from "firebase/firestore";
 import { auth, db, googleProvider, hasFirebaseConfig } from "@/lib/firebase";
-import { USE_MOCK_API, initUserProfile } from "@/lib/api";
+import { USE_MOCK_API, initUserProfile, updateUserProfile } from "@/lib/api";
 import { AuthProviderName, UserProfile } from "@/lib/types";
 
 interface SignupInput {
@@ -30,6 +29,7 @@ interface SignupInput {
   email: string;
   password: string;
   displayName?: string;
+  regionId?: string;
 }
 
 interface AuthContextValue {
@@ -42,7 +42,7 @@ interface AuthContextValue {
   signup: (input: SignupInput) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<boolean>;
-  completeProfile: (username: string) => Promise<void>;
+  completeProfile: (username: string, regionId?: string) => Promise<void>;
   updateUsername: (username: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -73,7 +73,7 @@ async function getProfile(uid: string): Promise<UserProfile | null> {
   return snapshot.exists() ? (snapshot.data() as UserProfile) : null;
 }
 
-async function reserveAndCreateProfile(params: {
+async function createProfile(params: {
   uid: string;
   email: string;
   displayName: string;
@@ -85,19 +85,9 @@ async function reserveAndCreateProfile(params: {
   }
 
   const normalizedUserId = normalizeUsername(params.userId);
-  const usernameRef = doc(db, "usernames", normalizedUserId);
   const profileRef = doc(db, "profiles", params.uid);
 
   await runTransaction(db, async (transaction) => {
-    const usernameSnapshot = await transaction.get(usernameRef);
-    if (usernameSnapshot.exists()) {
-      throw new Error("Username is already taken.");
-    }
-
-    transaction.set(usernameRef, {
-      firebaseUid: params.uid,
-      createdAt: serverTimestamp()
-    });
     transaction.set(profileRef, {
       firebaseUid: params.uid,
       userId: normalizedUserId,
@@ -154,15 +144,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(authUser || isDevSession),
       isDevSession,
       needsProfileCompletion: Boolean(authUser && !isDevSession && !profile),
-      signup: async ({ username, email, password, displayName }) => {
+      signup: async ({ username, email, password, displayName, regionId }) => {
         if (!auth || !hasFirebaseConfig) {
           throw new Error("Firebase is not configured.");
         }
 
+        const normalizedUsername = normalizeUsername(username);
+
         const credential = await createUserWithEmailAndPassword(auth, email, password);
         
         try {
-          await reserveAndCreateProfile({
+          // Create profile document in Firestore
+          await createProfile({
             uid: credential.user.uid,
             email,
             userId: username,
@@ -170,8 +163,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             provider: "password"
           });
 
-          // Initialize user profile in backend (Firestore users collection)
-          await initUserProfile(username);
+          // Initialize user profile in backend (users collection with uniqueness check)
+          await initUserProfile(normalizedUsername, regionId);
 
           const createdProfile = await getProfile(credential.user.uid);
           setProfile(createdProfile);
@@ -207,18 +200,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(existingProfile);
         return !existingProfile;
       },
-      completeProfile: async (username) => {
+      completeProfile: async (username, regionId) => {
         if (!authUser) {
           throw new Error("User is not signed in.");
         }
 
-        await reserveAndCreateProfile({
+        const normalizedUsername = normalizeUsername(username);
+
+        // Create profile document in Firestore
+        await createProfile({
           uid: authUser.uid,
           email: authUser.email || "",
           userId: username,
           displayName: authUser.displayName || username,
           provider: "google"
         });
+
+        // Initialize user profile in backend (users collection with uniqueness check)
+        await initUserProfile(normalizedUsername, regionId);
 
         const createdProfile = await getProfile(authUser.uid);
         setProfile(createdProfile);
@@ -250,23 +249,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error("Profile is not ready. Please try again.");
         }
 
-        const oldUserId = normalizeUsername(profile.userId);
         const profileRef = doc(db, "profiles", authUser.uid);
-        const newUsernameRef = doc(db, "usernames", normalizedUserId);
-        const oldUsernameRef = doc(db, "usernames", oldUserId);
 
+        // Keep backend users collection aligned with profile username.
+        await updateUserProfile({ username: normalizedUserId });
+
+        // Update profile document in Firestore
         await runTransaction(db, async (transaction) => {
-          const newUsernameSnapshot = await transaction.get(newUsernameRef);
-          const ownerUid = newUsernameSnapshot.data()?.firebaseUid;
-
-          if (newUsernameSnapshot.exists() && ownerUid !== authUser.uid) {
-            throw new Error("Username is already taken.");
-          }
-
-          transaction.set(newUsernameRef, {
-            firebaseUid: authUser.uid,
-            createdAt: serverTimestamp()
-          });
           transaction.set(
             profileRef,
             {
@@ -275,10 +264,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             },
             { merge: true }
           );
-
-          if (oldUserId !== normalizedUserId) {
-            transaction.delete(oldUsernameRef);
-          }
         });
 
         const updatedProfile = await getProfile(authUser.uid);
