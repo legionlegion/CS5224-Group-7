@@ -192,34 +192,34 @@ export async function testModel(): Promise<VerifyActivityResult> {
   });
 }
 
-  export async function getUserTransactions(): Promise<SubmissionHistoryItem[]> {
-    if (USE_MOCK_API) {
-      return mockSubmissionHistory();
-    }
-
-    const response = await request<{ status: string; data: SubmissionHistoryItem[] }>(
-      "/api/v1/users/transactions"
-    );
-
-    return response.data;
+export async function getUserTransactions(): Promise<SubmissionHistoryItem[]> {
+  if (USE_MOCK_API) {
+    return mockSubmissionHistory();
   }
 
-  interface UpdateUserProfilePayload {
-    username?: string;
-    region_id?: string;
+  const response = await request<{ status: string; data: SubmissionHistoryItem[] }>(
+    "/api/v1/users/transactions"
+  );
+
+  return response.data;
+}
+
+interface UpdateUserProfilePayload {
+  username?: string;
+  region_id?: string;
+}
+
+export async function updateUserProfile(payload: UpdateUserProfilePayload): Promise<void> {
+  if (USE_MOCK_API) {
+    return;
   }
 
-  export async function updateUserProfile(payload: UpdateUserProfilePayload): Promise<void> {
-    if (USE_MOCK_API) {
-      return;
-    }
-
-    await request<{ status: string; message: string }>("/api/v1/users/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-  }
+  await request<{ status: string; message: string }>("/api/v1/users/profile", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
 
 
 

@@ -1,0 +1,11 @@
+apiVersion: skaffold/v4beta7
+kind: Config
+metadata:
+  name: ml-config
+profiles:
+  - name: dev
+    manifests:
+      rawYaml:
+        - run-service-dev.yaml
+deploy:
+  cloudrun: {}
