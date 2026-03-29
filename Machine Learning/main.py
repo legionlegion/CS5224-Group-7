@@ -1,5 +1,13 @@
 from io import BytesIO
+import os
 from pathlib import Path
+import sys
+
+if sys.version_info[:2] >= (3, 13):
+    raise RuntimeError(
+        "Machine Learning service requires Python 3.12 or earlier. "
+        "Recreate the venv with python3.12 -m venv venv, reinstall requirements, and try again."
+    )
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image
@@ -8,6 +16,7 @@ from ultralytics import YOLO
 import uvicorn
 
 MODEL_PATH = Path("./best.pt")
+DEFAULT_CONFIDENCE_THRESHOLD = 0.25
 
 app = FastAPI(title="YOLO Prediction API")
 model = YOLO(str(MODEL_PATH))
@@ -22,10 +31,18 @@ ALLOWED_CLASSES = {
     "Trash",
 }
 
+CLASS_NAME_MAP = {
+    "blue bins": "Bluebins",
+    "metal can": "Metal",
+    "newspaper": "Paper",
+    "plastic bag": "Plastic",
+    "plastic bottle": "Plastic",
+}
+
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    conf = 0.7
+    conf = float(os.getenv("YOLO_CONFIDENCE_THRESHOLD", DEFAULT_CONFIDENCE_THRESHOLD))
     payload = await file.read()
     if not payload:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
@@ -47,9 +64,13 @@ async def predict(file: UploadFile = File(...)):
             }
         )
 
-    detected_classes = {
-        pred["class_name"] for pred in predictions if pred["class_name"] in ALLOWED_CLASSES
-    }
+    detected_classes = set()
+    for pred in predictions:
+        raw_class_name = pred["class_name"]
+        normalized_class_name = CLASS_NAME_MAP.get(raw_class_name, raw_class_name)
+        if normalized_class_name in ALLOWED_CLASSES:
+            detected_classes.add(normalized_class_name)
+
     # Return list of recyclable items (all detected except Trash)
     recyclable_items = list(detected_classes - {"Trash"})
     return recyclable_items
