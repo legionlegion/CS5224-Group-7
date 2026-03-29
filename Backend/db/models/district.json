@@ -1,8 +1,0 @@
-{
-  "_comments": {
-    "_doc_id": "Use the district code as the document ID (e.g. 'central') for direct lookups without querying.",
-    "region_id": "Reference to the region document ID (e.g. 'central', 'north', 'north-east', 'east', 'west')."
-  },
-  "name": "Central",
-  "region_id": "central"
-}

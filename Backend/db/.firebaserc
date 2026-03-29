@@ -1,6 +1,0 @@
-{
-  "projects": {
-    "default": "demo-cs5224",
-    "production": "your-firebase-project-id"
-  }
-}

@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useAuth } from "@/context/AuthContext";
+import { getRegions } from "@/lib/api";
+import type { Region } from "@/lib/types";
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -14,8 +16,28 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState<string>("");
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [loadingRegions, setLoadingRegions] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const loadRegions = async () => {
+      try {
+        setLoadingRegions(true);
+        const fetchedRegions = await getRegions();
+        setRegions(fetchedRegions);
+      } catch (err) {
+        console.error("Failed to load regions:", err);
+        setRegions([]);
+      } finally {
+        setLoadingRegions(false);
+      }
+    };
+
+    loadRegions();
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -29,7 +51,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      await signup({ username, email, password, displayName: username });
+      await signup({ username, email, password, displayName: username, regionId: selectedRegion || undefined });
       router.replace("/map");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to sign up.");
@@ -47,6 +69,24 @@ export default function SignupPage() {
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <Input label="Username" type="text" value={username} onChange={setUsername} />
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium">Select your region</span>
+              <select
+                value={selectedRegion}
+                onChange={(event) => setSelectedRegion(event.target.value)}
+                disabled={loadingRegions}
+                className="w-full rounded-2xl border border-ink/10 bg-canvas px-4 py-3 disabled:opacity-50"
+              >
+                <option value="">
+                  {loadingRegions ? "Loading regions..." : "Choose a region (optional)"}
+                </option>
+                {regions.map((region) => (
+                  <option key={region.id} value={region.id}>
+                    {region.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Input label="Email" type="email" value={email} onChange={setEmail} />
             <Input
               label="Password"
