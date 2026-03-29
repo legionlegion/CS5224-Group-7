@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"])
+CORS(app, origins=["http://localhost:3000", "https://recycling-frontend-dev-306363185631.us-west2.run.app"])
 
 DEFAULT_BIN_DISTANCE_THRESHOLD_METERS = 50.0
 

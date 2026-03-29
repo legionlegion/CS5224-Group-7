@@ -12,8 +12,8 @@ if sys.version_info[:2] >= (3, 13):
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image
 from ultralytics import YOLO
-
 import uvicorn
+
 
 MODEL_PATH = Path("./best.pt")
 DEFAULT_CONFIDENCE_THRESHOLD = 0.25
@@ -68,8 +68,15 @@ async def predict(file: UploadFile = File(...)):
             detected_classes.add(normalized_class_name)
 
     recyclable_items = sorted(detected_classes)
+    print(recyclable_items)
     return recyclable_items
-  
+
+
+def main():
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "5001"))
+    uvicorn.run("main:app", host=host, port=port)
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    main()

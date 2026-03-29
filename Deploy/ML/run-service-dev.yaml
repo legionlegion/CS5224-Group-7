@@ -10,4 +10,8 @@ spec:
         - image: ml-image
           env:
             - name: GOOGLE_CLOUD_PROJECT
-              value: "cs5224-grp7-new"
+              value: "cs5224-grp7-3bb27"
+          resources:
+            limits:
+              memory: "1Gi"
+              cpu: "1"

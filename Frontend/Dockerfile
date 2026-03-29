@@ -29,4 +29,4 @@ COPY . .
 RUN npm run build
 
 ENV PORT=8080
-CMD ["npm", "start"]
+CMD ["node", "node_modules/next/dist/bin/next", "start", "-p", "8080"]
