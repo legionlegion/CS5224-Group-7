@@ -24,7 +24,7 @@ CORS(app, origins=["http://localhost:3000", "https://recycling-frontend-dev-3063
 
 DEFAULT_BIN_DISTANCE_THRESHOLD_METERS = 50.0
 
-
+#
 def get_bin_distance_threshold_meters():
     """Read verify-activity distance threshold from env with safe fallback."""
     raw_value = os.getenv("BIN_DISTANCE_THRESHOLD_METERS", str(DEFAULT_BIN_DISTANCE_THRESHOLD_METERS))
