@@ -15,7 +15,7 @@ from ultralytics import YOLO
 import uvicorn
 
 
-MODEL_PATH = Path("./best.pt")
+MODEL_PATH = Path("./best.pt") #
 DEFAULT_CONFIDENCE_THRESHOLD = 0.25
 
 app = FastAPI(title="YOLO Prediction API")
