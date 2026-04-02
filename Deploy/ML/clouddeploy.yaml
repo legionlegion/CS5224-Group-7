@@ -15,7 +15,7 @@ metadata:
   name: ml-dev
 description: ML service dev target
 run:
-  location: projects/cs5224-grp7-3bb27/locations/us-west2
+  location: projects/cs5224-grp7-3bb27/locations/asia-southeast1
 executionConfigs:
   - usages: ["RENDER", "DEPLOY"]
     defaultPool:

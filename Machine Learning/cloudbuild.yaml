@@ -2,10 +2,10 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  _REGION: "us-west2"
+  _REGION: "asia-southeast1"
   _AR_REPO: "recycling-images"
   _IMAGE_NAME: "ml-service"
-  _DEPLOY_REGION: "us-west2"
+  _DEPLOY_REGION: "asia-southeast1"
 
 steps:
   - name: "gcr.io/cloud-builders/docker"

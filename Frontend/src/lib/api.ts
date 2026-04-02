@@ -15,7 +15,7 @@ import {
   mockVerifyActivity,
 } from "@/lib/mockApi";
 import { auth } from "@/lib/firebase";
-// 
+// as
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API?.toLowerCase() === "true";
 
