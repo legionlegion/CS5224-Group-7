@@ -2,10 +2,10 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  _REGION: "us-west2"
+  _REGION: "asia-southeast1"
   _AR_REPO: "recycling-images"
   _IMAGE_NAME: "frontend"
-  _DEPLOY_REGION: "us-west2"
+  _DEPLOY_REGION: "asia-southeast1"
   _NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyAM95gmG6aIkX9YPlkks-0i7lx49wnjvH8"
   _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "cs5224-grp7-3bb27.firebaseapp.com"
   _NEXT_PUBLIC_FIREBASE_PROJECT_ID: "cs5224-grp7-3bb27"
@@ -21,7 +21,7 @@ steps:
       - "build"
       - "-t"
       - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${COMMIT_SHA}"
-      - "--build-arg=NEXT_PUBLIC_API_BASE_URL=https://recycling-backend-dev-306363185631.us-west2.run.app"
+      - "--build-arg=NEXT_PUBLIC_API_BASE_URL=https://recycling-backend-dev-306363185631.asia-southeast1.run.app"
       - "--build-arg=NEXT_PUBLIC_USE_MOCK_API=false"
       - "--build-arg=NEXT_PUBLIC_FIREBASE_API_KEY=${_NEXT_PUBLIC_FIREBASE_API_KEY}"
       - "--build-arg=NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}"
