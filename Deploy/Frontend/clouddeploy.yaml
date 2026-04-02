@@ -23,7 +23,7 @@ metadata:
   name: frontend-dev
 description: Frontend dev target
 run:
-  location: projects/cs5224-grp7-3bb27/locations/asia-southeast1
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
 executionConfigs:
   - usages: ["RENDER", "DEPLOY"]
     defaultPool:
@@ -38,7 +38,7 @@ metadata:
 description: Frontend uat target
 requireApproval: true
 run:
-  location: projects/cs5224-grp7-3bb27/locations/asia-southeast1
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
 executionConfigs:
   - usages: ["RENDER", "DEPLOY"]
     defaultPool:
@@ -53,7 +53,7 @@ metadata:
 description: Frontend prod target
 requireApproval: true
 run:
-  location: projects/cs5224-grp7-3bb27/locations/asia-southeast1
+  location: projects/cs5224-grp7-3bb27/locations/us-west2
 executionConfigs:
   - usages: ["RENDER", "DEPLOY"]
     defaultPool:

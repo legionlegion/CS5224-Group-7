@@ -10,7 +10,7 @@ spec:
         - image: frontend-image
           env:
             - name: NEXT_PUBLIC_API_BASE_URL
-              value: "https://recycling-backend-dev-306363185631.asia-southeast1.run.app"
+              value: "https://recycling-backend-dev-306363185631.us-west2.run.app"
             - name: NEXT_PUBLIC_USE_MOCK_API
               value: "false"
             - name: NEXT_PUBLIC_FIREBASE_API_KEY
