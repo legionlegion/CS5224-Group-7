@@ -9,7 +9,7 @@ spec:
       containers:
         - image: backend-image
           env:
-            - name: PORT
-              value: "8080"
             - name: GOOGLE_CLOUD_PROJECT
-              value: "cs5224-grp7-new"
+              value: "cs5224-grp7-3bb27"
+            - name: ML_PREDICT_URL
+              value: "https://recycling-ml-dev-306363185631.us-west2.run.app/predict"

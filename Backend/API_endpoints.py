@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"])
+CORS(app, origins=["http://localhost:3000", "https://recycling-frontend-dev-306363185631.us-west2.run.app"])
 
 DEFAULT_BIN_DISTANCE_THRESHOLD_METERS = 50.0
 
@@ -1078,5 +1078,5 @@ def update_profile():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8000)
-
+    port = int(os.environ.get("PORT", 8080))
+    app.run(debug=True, host="0.0.0.0", port=port)
