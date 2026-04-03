@@ -11,7 +11,7 @@ spec:
         run.googleapis.com/startup-cpu-boost: "true" # Boosts CPU during startup to help cold starts
     spec:
       serviceAccountName: backend-run-prod@cs5224-grp7-3bb27.iam.gserviceaccount.com
-      containerConcurrency: 50 # Moderate concurrency to balance load and resource usage
+      containerConcurrency: 60 # Moderate concurrency to balance load and resource usage
       timeoutSeconds: 300 # Increase timeout for longer processing times (cold starts)
       containers:
         - image: backend-image
