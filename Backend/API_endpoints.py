@@ -8,7 +8,7 @@ import requests
 import firebase_admin
 from firebase_admin import credentials, firestore
 from auth_middleware import require_auth
-
+# 
 # Logging and env
 import logging
 import os

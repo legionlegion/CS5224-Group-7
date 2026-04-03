@@ -8,6 +8,7 @@
 
 # Universal ML Weight Ignore (Catches them in ANY subfolder)
 **/*.pt
+!/Machine Learning/best.pt
 **/*.pth
 **/*.weights
 **/*.h5
