@@ -14,7 +14,6 @@ from PIL import Image
 from ultralytics import YOLO
 import uvicorn
 
-
 MODEL_PATH = Path("./best.pt") #
 DEFAULT_CONFIDENCE_THRESHOLD = 0.25
 

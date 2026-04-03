@@ -9,7 +9,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from auth_middleware import require_auth
 
-# Logging and env
+# Logging and env 
 import logging
 import os
 from dotenv import load_dotenv
