@@ -11,6 +11,48 @@ Mobile-first Next.js 14 frontend for a recycling gamification app with Firebase 
 - Firestore
 - Leaflet via `react-leaflet`
 
+## Frontend Architecture
+
+```mermaid
+flowchart TD
+  U[User] --> App[Next.js Frontend]
+  App --> Auth[Login or Signup]
+  Auth --> Firebase[Firebase Authentication]
+  Firebase --> Profile{Firestore profile exists?}
+  Profile -->|No| Complete[Complete profile]
+  Complete --> Firestore[Cloud Firestore profile]
+  Complete --> BackendInit[Backend user initialization]
+  Profile -->|Yes| Core[Core app pages]
+  Firestore --> Core
+  BackendInit --> Core
+
+  Core --> Map[Map and nearby bins]
+  Core --> Log[Camera log and verification]
+  Core --> Leaderboard[Leaderboard and rewards]
+  Core --> UserProfile[Profile and stats]
+
+  Map --> Api[Frontend API layer]
+  Log --> Api
+  Leaderboard --> Api
+  UserProfile --> Api
+
+  Api -->|Bearer Firebase ID token| Backend[Flask backend]
+  Api -. mock mode .-> Mock[Mock API layer]
+  Backend --> Data[Firestore app data plus ML service]
+```
+
+## Technology Overview
+
+The frontend is a mobile-first Next.js 14 application built with the App Router, TypeScript, and Tailwind CSS. Shared app state is managed through `AuthProvider` in `src/context/AuthContext.tsx`, while route protection is handled by `src/components/auth/AuthGuard.tsx`. Feature pages under `src/app/` call a small client service layer in `src/lib/api.ts`, and Leaflet is loaded client-side for the interactive map in `src/components/map/BinMap.tsx`.
+
+Firebase is used in two ways. Firebase Authentication manages email/password and Google sign-in, and the browser keeps that session with local persistence from `src/lib/firebase.ts`. Firestore stores the frontend-owned profile record in `profiles/{firebaseUid}` so the app can tell whether a signed-in user has completed onboarding and what username should be shown in the UI.
+
+## Firebase Auth And Backend Sync
+
+The frontend and backend are synchronized through the Firebase ID token. After a user signs in, `src/lib/api.ts` calls `auth.currentUser.getIdToken()` and sends that token in the `Authorization: Bearer <token>` header for backend requests. The Flask backend verifies that token, identifies the Firebase user, and uses that identity to read or update backend data such as the `users` collection, leaderboard ranks, recycling transactions, and nearby bin queries.
+
+There are two profile layers by design. The frontend creates and reads a Firestore profile document in `profiles/{firebaseUid}` for onboarding and UI state, while it separately calls backend endpoints such as `/api/v1/users/init`, `/api/v1/users/profile`, `/api/v1/users/stats`, `/api/v1/users/region`, and `/api/v1/leaderboard` to keep the backend-owned `users` record aligned. In practice, signup or Google profile completion writes the Firebase-side profile first and then initializes the backend user record, and username edits call the backend update endpoint before updating the Firestore profile so both systems stay consistent.
+
 ## Routes
 
 - `/login`
