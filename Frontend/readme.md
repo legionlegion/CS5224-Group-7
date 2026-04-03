@@ -11,6 +11,85 @@ Mobile-first Next.js 14 frontend for a recycling gamification app with Firebase 
 - Firestore
 - Leaflet via `react-leaflet`
 
+## Frontend Architecture
+
+```mermaid
+flowchart TD
+  U[User] --> R[Next.js App Router Pages]
+
+  subgraph AppShell[Frontend App Shell]
+    R --> L[Root Layout]
+    L --> AP[AuthProvider]
+    L --> BN[BottomNav]
+    L --> MM[MockModeBadge]
+    AP --> AG[AuthGuard]
+  end
+
+  subgraph Routes[Feature Pages]
+    AG --> Login[/login and /signup/]
+    AG --> CP[/complete-profile/]
+    AG --> Map[/map/]
+    AG --> Log[/log/]
+    AG --> Leaderboard[/leaderboard/]
+    AG --> Rewards[/rewards/]
+    AG --> Profile[/profile/]
+  end
+
+  subgraph Components[UI Components]
+    Map --> BinMap[BinMap plus Leaflet]
+    Log --> Camera[CameraCapture]
+    Profile --> ProfileCard[ProfileStatsCard]
+    Profile --> History[SubmissionHistoryList]
+    Leaderboard --> LeaderboardList[LeaderboardList]
+    Rewards --> RewardCard[RewardSummaryCard]
+  end
+
+  subgraph ClientServices[Client Libraries]
+    AP --> FirebaseLib[lib/firebase.ts]
+    AP --> ApiLib[lib/api.ts]
+    Map --> Geo[lib/geolocation.ts]
+    Map --> ApiLib
+    Map --> BinsGeoJSON[public/bins.geojson]
+    Log --> Geo
+    Log --> ApiLib
+    Log --> LocalHistory[lib/recyclingHistory.ts]
+    Leaderboard --> ApiLib
+    Profile --> ApiLib
+    CP --> ApiLib
+    ApiLib --> MockApi[lib/mockApi.ts]
+  end
+
+  subgraph Firebase[Firebase]
+    FirebaseLib --> FAuth[Firebase Authentication]
+    FirebaseLib --> FStore[Cloud Firestore]
+    AP --> FStore
+  end
+
+  subgraph Backend[Backend Services]
+    ApiLib --> Flask[Flask API]
+    Flask --> Users[(users collection)]
+    Flask --> Bins[(recycling_bins collection)]
+    Flask --> ML[ML prediction service]
+  end
+
+  FAuth -. sign in, session .-> AP
+  AP -. read and write profile .-> FStore
+  FAuth -. ID token .-> ApiLib
+  MockApi -. used when NEXT_PUBLIC_USE_MOCK_API=true .-> ApiLib
+```
+
+## Technology Overview
+
+The frontend is a mobile-first Next.js 14 application built with the App Router, TypeScript, and Tailwind CSS. Shared app state is managed through `AuthProvider` in `src/context/AuthContext.tsx`, while route protection is handled by `src/components/auth/AuthGuard.tsx`. Feature pages under `src/app/` call a small client service layer in `src/lib/api.ts`, and Leaflet is loaded client-side for the interactive map in `src/components/map/BinMap.tsx`.
+
+Firebase is used in two ways. Firebase Authentication manages email/password and Google sign-in, and the browser keeps that session with local persistence from `src/lib/firebase.ts`. Firestore stores the frontend-owned profile record in `profiles/{firebaseUid}` so the app can tell whether a signed-in user has completed onboarding and what username should be shown in the UI.
+
+## Firebase Auth And Backend Sync
+
+The frontend and backend are synchronized through the Firebase ID token. After a user signs in, `src/lib/api.ts` calls `auth.currentUser.getIdToken()` and sends that token in the `Authorization: Bearer <token>` header for backend requests. The Flask backend verifies that token, identifies the Firebase user, and uses that identity to read or update backend data such as the `users` collection, leaderboard ranks, recycling transactions, and nearby bin queries.
+
+There are two profile layers by design. The frontend creates and reads a Firestore profile document in `profiles/{firebaseUid}` for onboarding and UI state, while it separately calls backend endpoints such as `/api/v1/users/init`, `/api/v1/users/profile`, `/api/v1/users/stats`, `/api/v1/users/region`, and `/api/v1/leaderboard` to keep the backend-owned `users` record aligned. In practice, signup or Google profile completion writes the Firebase-side profile first and then initializes the backend user record, and username edits call the backend update endpoint before updating the Firestore profile so both systems stay consistent.
+
 ## Routes
 
 - `/login`
