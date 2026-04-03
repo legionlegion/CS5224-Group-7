@@ -15,8 +15,8 @@ import {
   mockVerifyActivity,
 } from "@/lib/mockApi";
 import { auth } from "@/lib/firebase";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+// 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API?.toLowerCase() === "true";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -26,7 +26,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (auth?.currentUser) {
     try {
       const idToken = await auth.currentUser.getIdToken();
-      console.log("Id token: " + idToken);
       headers.set("Authorization", `Bearer ${idToken}`);
     } catch (error) {
       console.error("Failed to get Firebase ID token:", error);
