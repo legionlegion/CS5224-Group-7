@@ -15,7 +15,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# Configure logging
+# Configure logging 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
