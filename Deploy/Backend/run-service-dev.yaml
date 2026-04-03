@@ -2,6 +2,8 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: recycling-backend-dev
+  annotations:
+    run.googleapis.com/ingress: all
 spec:
   template:
     metadata:
