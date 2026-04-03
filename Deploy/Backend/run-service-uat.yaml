@@ -4,10 +4,21 @@ metadata:
   name: recycling-backend-uat
 spec:
   template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0" # Cold start to save costs when idle
+        autoscaling.knative.dev/maxScale: "5"
+        run.googleapis.com/startup-cpu-boost: "true" # Boosts CPU during startup to help cold starts
     spec:
       serviceAccountName: backend-run-uat@cs5224-grp7-3bb27.iam.gserviceaccount.com
+      containerConcurrency: 40
+      timeoutSeconds: 300 
       containers:
         - image: backend-image
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
           env:
             - name: PORT
               value: "8080"

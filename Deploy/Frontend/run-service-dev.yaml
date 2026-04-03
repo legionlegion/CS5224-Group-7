@@ -4,10 +4,20 @@ metadata:
   name: recycling-frontend-dev
 spec:
   template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "3" 
+        autoscaling.knative.dev/target: "50"
     spec:
       serviceAccountName: frontend-run-dev@cs5224-grp7-3bb27.iam.gserviceaccount.com
+      containerConcurrency: 80
       containers:
         - image: frontend-image
+          resources:
+            limits:
+              cpu: "1000m" # 1 vCPU
+              memory: "512Mi"
           env:
             - name: NEXT_PUBLIC_API_BASE_URL
               value: "https://recycling-backend-dev-306363185631.asia-southeast1.run.app"
