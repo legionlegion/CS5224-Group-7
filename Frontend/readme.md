@@ -15,67 +15,30 @@ Mobile-first Next.js 14 frontend for a recycling gamification app with Firebase 
 
 ```mermaid
 flowchart TD
-  U[User] --> R[Next.js App Router Pages]
+  U[User] --> App[Next.js Frontend]
+  App --> Auth[Login or Signup]
+  Auth --> Firebase[Firebase Authentication]
+  Firebase --> Profile{Firestore profile exists?}
+  Profile -->|No| Complete[Complete profile]
+  Complete --> Firestore[Cloud Firestore profile]
+  Complete --> BackendInit[Backend user initialization]
+  Profile -->|Yes| Core[Core app pages]
+  Firestore --> Core
+  BackendInit --> Core
 
-  subgraph AppShell[Frontend App Shell]
-    R --> L[Root Layout]
-    L --> AP[AuthProvider]
-    L --> BN[BottomNav]
-    L --> MM[MockModeBadge]
-    AP --> AG[AuthGuard]
-  end
+  Core --> Map[Map and nearby bins]
+  Core --> Log[Camera log and verification]
+  Core --> Leaderboard[Leaderboard and rewards]
+  Core --> UserProfile[Profile and stats]
 
-  subgraph Routes[Feature Pages]
-    AG --> Login[/login and /signup/]
-    AG --> CP[/complete-profile/]
-    AG --> Map[/map/]
-    AG --> Log[/log/]
-    AG --> Leaderboard[/leaderboard/]
-    AG --> Rewards[/rewards/]
-    AG --> Profile[/profile/]
-  end
+  Map --> Api[Frontend API layer]
+  Log --> Api
+  Leaderboard --> Api
+  UserProfile --> Api
 
-  subgraph Components[UI Components]
-    Map --> BinMap[BinMap plus Leaflet]
-    Log --> Camera[CameraCapture]
-    Profile --> ProfileCard[ProfileStatsCard]
-    Profile --> History[SubmissionHistoryList]
-    Leaderboard --> LeaderboardList[LeaderboardList]
-    Rewards --> RewardCard[RewardSummaryCard]
-  end
-
-  subgraph ClientServices[Client Libraries]
-    AP --> FirebaseLib[lib/firebase.ts]
-    AP --> ApiLib[lib/api.ts]
-    Map --> Geo[lib/geolocation.ts]
-    Map --> ApiLib
-    Map --> BinsGeoJSON[public/bins.geojson]
-    Log --> Geo
-    Log --> ApiLib
-    Log --> LocalHistory[lib/recyclingHistory.ts]
-    Leaderboard --> ApiLib
-    Profile --> ApiLib
-    CP --> ApiLib
-    ApiLib --> MockApi[lib/mockApi.ts]
-  end
-
-  subgraph Firebase[Firebase]
-    FirebaseLib --> FAuth[Firebase Authentication]
-    FirebaseLib --> FStore[Cloud Firestore]
-    AP --> FStore
-  end
-
-  subgraph Backend[Backend Services]
-    ApiLib --> Flask[Flask API]
-    Flask --> Users[(users collection)]
-    Flask --> Bins[(recycling_bins collection)]
-    Flask --> ML[ML prediction service]
-  end
-
-  FAuth -. sign in, session .-> AP
-  AP -. read and write profile .-> FStore
-  FAuth -. ID token .-> ApiLib
-  MockApi -. used when NEXT_PUBLIC_USE_MOCK_API=true .-> ApiLib
+  Api -->|Bearer Firebase ID token| Backend[Flask backend]
+  Api -. mock mode .-> Mock[Mock API layer]
+  Backend --> Data[Firestore app data plus ML service]
 ```
 
 ## Technology Overview
