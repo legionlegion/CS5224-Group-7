@@ -64,7 +64,7 @@ export default function LogPage() {
           </h2>
           <p className="mt-2 text-sm text-ink/70">
             {result
-              ? "Review the outcome and continue with your next submission."
+              ? "Take picture of your recyclable with the bin in the background!"
               : "Camera and location access are both required. File uploads are intentionally disabled."}
           </p>
         </div>

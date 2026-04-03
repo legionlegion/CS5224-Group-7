@@ -19,12 +19,8 @@ spec:
         - image: ml-image
           resources:
               limits:
-                cpu: "2000m"    # 2 vCPUs for faster YOLO detection
+                cpu: "1"
                 memory: "2Gi"   # Required for model weights/tensors
           env:
             - name: GOOGLE_CLOUD_PROJECT
               value: "cs5224-grp7-3bb27"
-          resources:
-            limits:
-              memory: "2Gi"
-              cpu: "1"

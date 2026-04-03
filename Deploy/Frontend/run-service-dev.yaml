@@ -6,17 +6,17 @@ spec:
   template:
     metadata:
       annotations:
-        autoscaling.knative.dev/minScale: "1"
-        autoscaling.knative.dev/maxScale: "3" 
-        autoscaling.knative.dev/target: "50"
+        autoscaling.knative.dev/minScale: "0" # Scale back to 0 when idle to save costs
+        autoscaling.knative.dev/maxScale: "10" 
+        autoscaling.knative.dev/target: "60" # Starts scaling when ~60 requests are active
     spec:
       serviceAccountName: frontend-run-dev@cs5224-grp7-3bb27.iam.gserviceaccount.com
-      containerConcurrency: 80
+      containerConcurrency: 100 # Set higher concurrency for production to handle more requests per instance; low cost, high concurrent user capacity
       containers:
         - image: frontend-image
           resources:
             limits:
-              cpu: "1000m" # 1 vCPU
+              cpu: "1" # 1 vCPU
               memory: "512Mi"
           env:
             - name: NEXT_PUBLIC_API_BASE_URL
