@@ -63,9 +63,9 @@ export default function LogPage() {
             {result ? "Verification result" : "Capture your recycling activity"}
           </h2>
           <p className="mt-2 text-sm text-ink/70">
-            {result
-              ? "Take picture of your recyclable with the bin in the background!"
-              : "Camera and location access are both required. File uploads are intentionally disabled."}
+            Take picture of your recyclable with the bin in the background!
+            <br />
+            Camera and location access are both required. File uploads are intentionally disabled.
           </p>
         </div>
 
