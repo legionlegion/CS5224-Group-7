@@ -166,16 +166,15 @@ Dependency installation was not run in this workspace, so build and type checks 
 ```bash
 # Mac
 gcloud builds submit . \
-  --project=cs5224-grp7-3bb27 \
-  --config=Backend/cloudbuild.yaml \
-  --region=us-west2 \
+  --project=<GCP_PROJECT_ID> \
+  --config=Frontend/cloudbuild.yaml \
+  --region=<GCP_REGION> \
   --substitutions=COMMIT_SHA=manual-$(date +%s),SHORT_SHA=manual$(date +%H%M%S)
 
-# Windows
 # Windows Powershell
 gcloud builds submit . `
-  --project=cs5224-grp7-3bb27 `
+  --project=<GCP_PROJECT_ID> `
   --config="Frontend/cloudbuild.yaml" `
-  --region=us-west2 `
+  --region=<GCP_REGION> `
   --substitutions="COMMIT_SHA=manual-$(Get-Date -UFormat %s),SHORT_SHA=manual$(Get-Date -Format HHmmss)"
 ```
