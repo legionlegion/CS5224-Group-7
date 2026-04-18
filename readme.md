@@ -16,6 +16,10 @@ flowchart LR
   BE --> Bins[(RecyclingBins<br/>GeoJSON)]
 ```
 
+For the full deployment topology (Cloud Run services, IAM, Firebase, Cloud Build / Cloud Deploy pipeline):
+
+![Detailed architecture](Public/architecture.jpg)
+
 All three services run on independent Cloud Run instances and scale to zero. Auth flows through Firebase; the frontend obtains an ID token and the backend verifies it via Firebase Admin SDK on every request.
 
 ## Repository Layout
